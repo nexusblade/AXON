@@ -1,0 +1,1067 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AXON — Bridging Logic and Intuition</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' x2='1'%3E%3Cstop offset='0' stop-color='%2300BFFF'/%3E%3Cstop offset='.5' stop-color='%23FFD700'/%3E%3Cstop offset='1' stop-color='%238A2BE2'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cpath d='M32 8c-6 0-10 4-11 8-5 0-9 4-9 9 0 3 1 5 3 7-1 2-2 4-2 6 0 5 4 9 9 9 2 3 5 5 9 5V8z' fill='none' stroke='%2300BFFF' stroke-width='3'/%3E%3Cpath d='M32 8c6 0 10 4 11 8 5 0 9 4 9 9 0 3-1 5-3 7 1 2 2 4 2 6 0 5-4 9-9 9-2 3-5 5-9 5V8z' fill='none' stroke='%238A2BE2' stroke-width='3'/%3E%3Ccircle cx='32' cy='32' r='3' fill='%23FFD700'/%3E%3C/svg%3E">
+<style>
+:root{
+  --bg:#0A0A0A; --bg2:#111111;
+  --logic:#00BFFF; --intu:#8A2BE2; --dual:#FFD700;
+  --logic-dim:rgba(0,191,255,.14); --intu-dim:rgba(138,43,226,.14); --dual-dim:rgba(255,215,0,.12);
+  --white:#F5F7FA; --gray:#8b93a1; --glass:rgba(255,255,255,.035);
+  --glass-brd:rgba(255,255,255,.09);
+  --sans: -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  --mono: ui-monospace,"SF Mono","Cascadia Code","Roboto Mono",Consolas,monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{
+  font-family:var(--sans); background:var(--bg); color:var(--white);
+  overflow:hidden; -webkit-font-smoothing:antialiased;
+}
+#neural{position:fixed;inset:0;z-index:0;display:block}
+.grain{position:fixed;inset:0;z-index:1;pointer-events:none;
+  background:radial-gradient(circle at 20% 30%,rgba(0,191,255,.06),transparent 45%),
+             radial-gradient(circle at 80% 70%,rgba(138,43,226,.06),transparent 45%),
+             radial-gradient(circle at 50% 50%,rgba(255,215,0,.03),transparent 40%);}
+.view{position:fixed;inset:0;z-index:2;display:none;overflow-y:auto}
+.view.active{display:block}
+::-webkit-scrollbar{width:8px;height:8px}
+::-webkit-scrollbar-thumb{background:rgba(255,255,255,.12);border-radius:8px}
+::selection{background:rgba(255,215,0,.3)}
+
+/* ---------- shared ---------- */
+.glass{background:var(--glass);backdrop-filter:blur(22px) saturate(140%);
+  -webkit-backdrop-filter:blur(22px) saturate(140%);
+  border:1px solid var(--glass-brd);border-radius:22px;
+  box-shadow:0 30px 80px -30px rgba(0,0,0,.8), inset 0 1px 0 rgba(255,255,255,.05);}
+.eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.42em;text-transform:uppercase;color:var(--gray)}
+.btn{font-family:var(--mono);letter-spacing:.14em;text-transform:uppercase;font-size:12px;
+  border:1px solid var(--glass-brd);background:rgba(255,255,255,.04);color:var(--white);
+  padding:14px 22px;border-radius:14px;cursor:pointer;transition:.25s;font-weight:600}
+.btn:hover{background:rgba(255,255,255,.09);transform:translateY(-1px)}
+.btn:active{transform:translateY(0)}
+.btn.primary{background:linear-gradient(120deg,var(--logic),var(--dual) 55%,var(--intu));
+  color:#050505;border:none;font-weight:800}
+.btn.primary:hover{filter:brightness(1.08);box-shadow:0 12px 34px -12px rgba(0,191,255,.6)}
+.btn:focus-visible,input:focus-visible,a:focus-visible{outline:2px solid var(--dual);outline-offset:2px}
+input{width:100%;font-family:var(--sans);font-size:15px;color:var(--white);
+  background:rgba(255,255,255,.04);border:1px solid var(--glass-brd);border-radius:12px;
+  padding:14px 16px;transition:.2s}
+input::placeholder{color:#5a616e}
+input:focus{outline:none;border-color:var(--logic);background:rgba(0,191,255,.06)}
+label{display:block;font-family:var(--mono);font-size:10px;letter-spacing:.2em;
+  text-transform:uppercase;color:var(--gray);margin:0 0 7px 3px}
+.field{margin-bottom:16px}
+.logo-word{font-weight:900;letter-spacing:.24em;
+  background:linear-gradient(110deg,var(--logic),var(--dual) 50%,var(--intu));
+  -webkit-background-clip:text;background-clip:text;color:transparent}
+
+/* split-brain svg logo */
+.brainlogo{filter:drop-shadow(0 0 22px rgba(0,191,255,.35)) drop-shadow(0 0 22px rgba(138,43,226,.35))}
+
+/* ---------- AUTH ---------- */
+#auth{display:flex;align-items:center;justify-content:center;padding:24px}
+#auth.active{display:flex}
+.auth-card{width:100%;max-width:420px;padding:44px 38px;text-align:center;animation:rise .7s cubic-bezier(.2,.8,.2,1)}
+@keyframes rise{from{opacity:0;transform:translateY(26px) scale(.98)}to{opacity:1;transform:none}}
+.auth-card h1{font-size:44px;margin:18px 0 6px}
+.auth-tag{color:var(--gray);font-family:var(--mono);font-size:12px;letter-spacing:.24em;margin-bottom:30px}
+.auth-form{text-align:left;margin-top:8px}
+.auth-actions{display:flex;flex-direction:column;gap:12px;margin-top:24px}
+.linkbtn{background:none;border:none;color:var(--gray);cursor:pointer;font-family:var(--mono);
+  font-size:11px;letter-spacing:.16em;text-transform:uppercase;padding:8px;transition:.2s}
+.linkbtn:hover{color:var(--dual)}
+.err{color:#ff6b81;font-family:var(--mono);font-size:11px;letter-spacing:.06em;min-height:16px;margin-top:6px}
+.sub{display:none}.sub.active{display:block}
+
+/* ---------- LOGIN ANIMATION ---------- */
+#loginAnim{position:fixed;inset:0;z-index:60;display:none;align-items:center;justify-content:center;
+  flex-direction:column;background:rgba(5,5,5,.86);backdrop-filter:blur(10px)}
+#loginAnim.active{display:flex}
+.pulse-ring{width:120px;height:120px;border-radius:50%;position:relative;margin-bottom:34px}
+.pulse-ring span{position:absolute;inset:0;border-radius:50%;border:2px solid var(--dual);
+  animation:pulsering 2s ease-out infinite;opacity:0}
+.pulse-ring span:nth-child(2){animation-delay:.6s;border-color:var(--logic)}
+.pulse-ring span:nth-child(3){animation-delay:1.2s;border-color:var(--intu)}
+@keyframes pulsering{0%{transform:scale(.3);opacity:.9}100%{transform:scale(1.4);opacity:0}}
+.pulse-core{position:absolute;inset:38px;border-radius:50%;
+  background:radial-gradient(circle,var(--dual),transparent 70%);animation:corebeat 1s ease-in-out infinite}
+@keyframes corebeat{0%,100%{transform:scale(.85)}50%{transform:scale(1.15)}}
+.anim-line{font-family:var(--mono);letter-spacing:.2em;font-size:14px;color:var(--gray);
+  min-height:22px;text-transform:uppercase}
+.welcome{font-size:52px;font-weight:900;opacity:0}
+.welcome.show{animation:welcomeIn 1s forwards}
+@keyframes welcomeIn{from{opacity:0;transform:scale(.85);letter-spacing:.5em}to{opacity:1;transform:none;letter-spacing:.24em}}
+
+/* ---------- APP SHELL ---------- */
+#app{display:none;flex-direction:column;height:100%}
+#app.active{display:flex}
+nav{display:flex;align-items:center;gap:20px;padding:14px 24px;z-index:20;
+  border-bottom:1px solid var(--glass-brd);background:rgba(10,10,10,.55);
+  backdrop-filter:blur(20px);position:relative}
+.nav-logo{display:flex;align-items:center;gap:11px;cursor:pointer;flex-shrink:0}
+.nav-logo .logo-word{font-size:22px;letter-spacing:.2em}
+.nav-links{display:flex;gap:4px;margin:0 auto;flex-wrap:wrap;justify-content:center}
+.nav-links button{font-family:var(--mono);font-size:11px;letter-spacing:.13em;text-transform:uppercase;
+  background:none;border:none;color:var(--gray);cursor:pointer;padding:9px 13px;border-radius:10px;transition:.2s;white-space:nowrap}
+.nav-links button:hover{color:var(--white);background:rgba(255,255,255,.05)}
+.nav-links button.on{color:var(--white);background:rgba(255,255,255,.07)}
+.nav-right{display:flex;align-items:center;gap:14px;flex-shrink:0}
+.icon-btn{background:rgba(255,255,255,.04);border:1px solid var(--glass-brd);color:var(--gray);
+  width:38px;height:38px;border-radius:11px;cursor:pointer;display:grid;place-items:center;transition:.2s;font-size:16px}
+.icon-btn:hover{color:var(--white);background:rgba(255,255,255,.09)}
+
+/* balance meter (nav) */
+.balance{display:flex;flex-direction:column;gap:4px;min-width:150px}
+.balance .row{display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:9px;letter-spacing:.1em}
+.balance .lab{width:52px;color:var(--gray);text-transform:uppercase}
+.balance .track{flex:1;height:5px;background:rgba(255,255,255,.06);border-radius:3px;overflow:hidden}
+.balance .fill{height:100%;border-radius:3px;transition:width .6s cubic-bezier(.2,.8,.2,1)}
+.balance .pct{width:30px;text-align:right;color:var(--white)}
+.fl{background:linear-gradient(90deg,var(--logic),#7fe0ff)}
+.fi{background:linear-gradient(90deg,var(--intu),#c07fff)}
+.fd{background:linear-gradient(90deg,var(--dual),#fff0a0)}
+
+.stage{flex:1;overflow-y:auto;position:relative}
+.wrap{max-width:1180px;margin:0 auto;padding:34px 24px 60px;width:100%}
+.pane{display:none}.pane.active{display:block;animation:fade .5s}
+@keyframes fade{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+
+/* ---------- HOME ---------- */
+.home-hero{text-align:center;padding:36px 0 20px}
+.home-hero h1{font-size:min(15vw,90px);letter-spacing:.16em;margin:18px 0 8px;line-height:1}
+.home-hero p{color:var(--gray);font-family:var(--mono);letter-spacing:.28em;font-size:13px;text-transform:uppercase}
+.mode-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-top:44px}
+.mode-card{padding:26px 24px;text-align:left;cursor:pointer;transition:.3s;position:relative;overflow:hidden}
+.mode-card:hover{transform:translateY(-6px)}
+.mode-card .glowline{position:absolute;top:0;left:0;right:0;height:3px;opacity:.85}
+.mode-card h3{font-size:20px;letter-spacing:.08em;margin:12px 0 8px}
+.mode-card p{color:var(--gray);font-size:13.5px;line-height:1.55}
+.mode-card .tag{font-family:var(--mono);font-size:10px;letter-spacing:.2em;text-transform:uppercase}
+.mode-card .ico{font-size:26px}
+.c-logic .glowline{background:var(--logic)}.c-logic:hover{box-shadow:0 24px 60px -24px rgba(0,191,255,.5)}.c-logic .tag{color:var(--logic)}
+.c-intu .glowline{background:var(--intu)}.c-intu:hover{box-shadow:0 24px 60px -24px rgba(138,43,226,.5)}.c-intu .tag{color:var(--intu)}
+.c-dual .glowline{background:var(--dual)}.c-dual:hover{box-shadow:0 24px 60px -24px rgba(255,215,0,.5)}.c-dual .tag{color:var(--dual)}
+.c-know .glowline{background:linear-gradient(90deg,var(--logic),var(--intu))}.c-know:hover{box-shadow:0 24px 60px -24px rgba(138,43,226,.4)}.c-know .tag{color:#b98cff}
+.c-minds .glowline{background:linear-gradient(90deg,var(--dual),var(--logic))}.c-minds:hover{box-shadow:0 24px 60px -24px rgba(255,215,0,.4)}.c-minds .tag{color:var(--dual)}
+
+/* ---------- CHAT ---------- */
+.chat-head{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:20px;flex-wrap:wrap}
+.chat-title{display:flex;align-items:center;gap:12px}
+.dot{width:11px;height:11px;border-radius:50%}
+.chat-title h2{font-size:24px;letter-spacing:.06em}
+.chat-title .sub{color:var(--gray);font-family:var(--mono);font-size:11px;letter-spacing:.18em;text-transform:uppercase}
+.mode-switch{display:flex;gap:6px;background:rgba(255,255,255,.04);padding:5px;border-radius:14px;border:1px solid var(--glass-brd)}
+.mode-switch button{font-family:var(--mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;
+  background:none;border:none;color:var(--gray);cursor:pointer;padding:8px 12px;border-radius:9px;transition:.2s}
+.mode-switch button.on{color:#060606;font-weight:800}
+.mode-switch button.on[data-m=logical]{background:var(--logic)}
+.mode-switch button.on[data-m=intuitive]{background:var(--intu);color:#fff}
+.mode-switch button.on[data-m=duality]{background:var(--dual)}
+.mode-switch button.on[data-m=trinity]{background:linear-gradient(90deg,var(--logic),var(--dual),var(--intu))}
+
+.msgs{display:flex;flex-direction:column;gap:18px;padding:8px 2px 20px}
+.msg{max-width:80%;animation:msgin .4s cubic-bezier(.2,.8,.2,1)}
+@keyframes msgin{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+.msg.user{align-self:flex-end}
+.msg.user .bubble{background:linear-gradient(120deg,rgba(255,255,255,.1),rgba(255,255,255,.05));
+  border:1px solid var(--glass-brd);border-radius:18px 18px 6px 18px;padding:14px 18px;line-height:1.6}
+.msg.ai{align-self:flex-start;max-width:88%}
+.card{padding:18px 20px;border-radius:6px 18px 18px 18px;line-height:1.65;white-space:pre-wrap;
+  border:1px solid var(--glass-brd);background:var(--glass);backdrop-filter:blur(18px)}
+.card .who{font-family:var(--mono);font-size:10px;letter-spacing:.2em;text-transform:uppercase;
+  margin-bottom:9px;display:flex;align-items:center;gap:7px}
+.card.logical{border-top:2px solid var(--logic)}.card.logical .who{color:var(--logic)}
+.card.intuitive{border-top:2px solid var(--intu)}.card.intuitive .who{color:#c79bff}
+.card.duality{border-top:2px solid var(--dual)}.card.duality .who{color:var(--dual)}
+.prefer{margin-top:14px;font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;
+  background:rgba(255,255,255,.05);border:1px solid var(--glass-brd);color:var(--gray);
+  padding:8px 14px;border-radius:10px;cursor:pointer;transition:.2s}
+.prefer:hover{color:var(--white);background:rgba(255,255,255,.1)}
+.prefer.done{color:var(--dual);border-color:var(--dual)}
+
+/* trinity grid */
+.trinity{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;animation:msgin .4s}
+.trinity .card{border-radius:16px}
+@media(max-width:820px){.trinity{grid-template-columns:1fr}}
+
+/* thinking */
+.thinking{display:flex;align-items:center;gap:14px;padding:14px 18px;align-self:flex-start;
+  border-radius:16px;border:1px solid var(--glass-brd);background:var(--glass)}
+.thinking span{font-family:var(--mono);font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:var(--gray)}
+.eeg{width:70px;height:26px}
+.eeg polyline{fill:none;stroke:var(--dual);stroke-width:2;stroke-linecap:round;
+  stroke-dasharray:200;animation:eegdash 1.4s linear infinite}
+@keyframes eegdash{to{stroke-dashoffset:-200}}
+.tdot{width:7px;height:7px;border-radius:50%;background:var(--logic);animation:tbeat 1s infinite}
+@keyframes tbeat{0%,100%{opacity:.3;transform:scale(.7)}50%{opacity:1;transform:scale(1.3)}}
+
+.composer{display:flex;gap:10px;position:sticky;bottom:0;padding:14px;margin-top:4px;
+  border-radius:18px;border:1px solid var(--glass-brd);background:rgba(15,15,15,.7);backdrop-filter:blur(20px)}
+.composer input{flex:1}
+.composer .btn{flex-shrink:0}
+
+/* ---------- KNOW YOUR MIND ---------- */
+.center-hero{text-align:center;max-width:640px;margin:20px auto 0}
+.center-hero h2{font-size:40px;letter-spacing:.08em;margin:14px 0 8px}
+.center-hero .tagline{color:var(--gray);font-family:var(--mono);letter-spacing:.2em;font-size:12px;text-transform:uppercase;margin-bottom:8px}
+.center-hero .desc{color:var(--gray);line-height:1.6;margin:18px 0 26px}
+.q-card{max-width:680px;margin:26px auto;padding:34px 32px}
+.q-prog{display:flex;justify-content:space-between;font-family:var(--mono);font-size:10px;letter-spacing:.2em;
+  text-transform:uppercase;color:var(--gray);margin-bottom:16px}
+.q-bar{height:5px;background:rgba(255,255,255,.06);border-radius:3px;overflow:hidden;margin-bottom:26px}
+.q-bar i{display:block;height:100%;background:linear-gradient(90deg,var(--logic),var(--dual),var(--intu));
+  transition:width .5s;border-radius:3px}
+.q-text{font-size:22px;line-height:1.5;margin-bottom:24px}
+.q-opts{display:flex;flex-direction:column;gap:12px}
+.opt{text-align:left;padding:16px 18px;border-radius:13px;border:1px solid var(--glass-brd);
+  background:rgba(255,255,255,.03);color:var(--white);cursor:pointer;transition:.2s;font-size:15px;line-height:1.4}
+.opt:hover{background:rgba(255,255,255,.08);border-color:var(--dual);transform:translateX(4px)}
+
+/* results */
+.result-card{max-width:720px;margin:24px auto;padding:40px 36px}
+.result-card h2{text-align:center;font-size:30px;letter-spacing:.1em;margin-bottom:6px}
+.hemi{text-align:center;font-family:var(--mono);letter-spacing:.24em;text-transform:uppercase;
+  font-size:14px;margin:18px 0 30px;padding:10px;border-radius:12px}
+.hemi.LOGICAL{color:var(--logic);background:var(--logic-dim)}
+.hemi.INTUITIVE{color:#c79bff;background:var(--intu-dim)}
+.hemi.BALANCED{color:var(--dual);background:var(--dual-dim)}
+.stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px 28px;margin-bottom:28px}
+.stat .top{display:flex;justify-content:space-between;font-family:var(--mono);font-size:11px;
+  letter-spacing:.12em;text-transform:uppercase;margin-bottom:7px}
+.stat .top .v{color:var(--dual)}
+.stat .track{height:7px;background:rgba(255,255,255,.06);border-radius:4px;overflow:hidden}
+.stat .track i{display:block;height:100%;border-radius:4px;transition:width 1s cubic-bezier(.2,.8,.2,1);width:0}
+.traits{display:flex;flex-wrap:wrap;gap:9px;justify-content:center;margin:8px 0 22px}
+.trait{font-family:var(--mono);font-size:11px;letter-spacing:.1em;padding:7px 14px;border-radius:20px;
+  border:1px solid var(--glass-brd);background:rgba(255,255,255,.04);color:var(--white)}
+.insight{text-align:center;font-size:18px;line-height:1.6;font-style:italic;color:var(--white);
+  padding:22px;border-radius:16px;background:rgba(255,215,0,.05);border:1px solid rgba(255,215,0,.15)}
+
+/* ---------- GREAT MINDS ---------- */
+.mind-input{display:flex;gap:10px;max-width:520px;margin:26px auto 0}
+.suggest{display:flex;flex-wrap:wrap;gap:9px;justify-content:center;margin-top:22px}
+.suggest button{font-family:var(--mono);font-size:11px;letter-spacing:.08em;padding:9px 15px;border-radius:20px;
+  border:1px solid var(--glass-brd);background:rgba(255,255,255,.03);color:var(--gray);cursor:pointer;transition:.2s}
+.suggest button:hover{color:var(--white);border-color:var(--dual);background:rgba(255,215,0,.06)}
+.persona-banner{max-width:760px;margin:0 auto 16px;padding:9px 16px;border-radius:12px;text-align:center;
+  font-family:var(--mono);font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:var(--dual);
+  background:rgba(255,215,0,.06);border:1px solid rgba(255,215,0,.18)}
+.persona-profile{max-width:760px;margin:0 auto 20px;padding:26px 28px}
+.persona-profile h2{font-size:30px;letter-spacing:.06em}
+.pp-meta{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:18px;margin-top:20px}
+.pp-meta .b .k{font-family:var(--mono);font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:var(--gray);margin-bottom:6px}
+.pp-meta .b .val{font-size:14px;line-height:1.5;color:var(--white)}
+.pp-era{font-family:var(--mono);color:var(--dual);letter-spacing:.14em;font-size:13px;margin-top:4px}
+.chatbox{max-width:760px;margin:0 auto}
+
+/* ---------- SETTINGS / PROFILE ---------- */
+.overlay{position:fixed;inset:0;z-index:50;display:none;justify-content:flex-end;
+  background:rgba(0,0,0,.5);backdrop-filter:blur(4px)}
+.overlay.active{display:flex;animation:fade .3s}
+.panel{width:min(440px,100%);height:100%;padding:34px 30px;overflow-y:auto;
+  background:rgba(14,14,16,.9);backdrop-filter:blur(28px);border-left:1px solid var(--glass-brd);
+  animation:slidein .4s cubic-bezier(.2,.8,.2,1)}
+@keyframes slidein{from{transform:translateX(60px);opacity:0}to{transform:none;opacity:1}}
+.panel h3{font-size:22px;letter-spacing:.08em;margin-bottom:6px}
+.panel .hint{color:var(--gray);font-size:12.5px;line-height:1.6;margin-bottom:24px}
+.panel .close{position:absolute;top:22px;right:26px}
+.preset-row{display:flex;flex-wrap:wrap;gap:7px;margin:-4px 0 16px}
+.preset-row button{font-family:var(--mono);font-size:10px;padding:6px 10px;border-radius:8px;
+  border:1px solid var(--glass-brd);background:rgba(255,255,255,.03);color:var(--gray);cursor:pointer;transition:.2s}
+.preset-row button:hover{color:var(--white);border-color:var(--logic)}
+.saved{color:var(--dual);font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-align:center;
+  min-height:16px;margin-top:10px}
+.prof-row{display:flex;justify-content:space-between;padding:14px 0;border-bottom:1px solid rgba(255,255,255,.06);
+  font-size:14px}
+.prof-row .k{color:var(--gray);font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase}
+.warn{color:#ff6b81;font-size:12px;background:rgba(255,107,129,.08);border:1px solid rgba(255,107,129,.2);
+  border-radius:12px;padding:14px;line-height:1.5;margin-top:14px}
+.warn a{color:var(--dual)}
+
+@media(max-width:720px){
+  .nav-links{order:3;width:100%;margin:6px 0 0}
+  .balance{min-width:120px}
+  nav{flex-wrap:wrap;gap:12px}
+  .wrap{padding:24px 16px 50px}
+  .home-hero h1{font-size:56px}
+}
+@media(prefers-reduced-motion:reduce){*{animation-duration:.01ms!important;transition-duration:.01ms!important}}
+</style>
+</head>
+<body>
+<canvas id="neural"></canvas>
+<div class="grain"></div>
+
+<!-- ===================== AUTH ===================== -->
+<section id="auth" class="view active">
+  <div class="auth-card glass">
+    <svg class="brainlogo" width="72" height="72" viewBox="0 0 64 64" style="margin:0 auto">
+      <defs><linearGradient id="lg" x1="0" x2="1"><stop offset="0" stop-color="#00BFFF"/><stop offset=".5" stop-color="#FFD700"/><stop offset="1" stop-color="#8A2BE2"/></linearGradient></defs>
+      <path d="M32 6c-7 0-11 5-12 9-6 0-10 5-10 10 0 3 1 6 4 8-2 2-3 5-3 7 0 6 5 10 11 10 2 3 5 5 10 5V6z" fill="none" stroke="#00BFFF" stroke-width="2.5"/>
+      <path d="M32 6c7 0 11 5 12 9 6 0 10 5 10 10 0 3-1 6-4 8 2 2 3 5 3 7 0 6-5 10-11 10-2 3-5 5-10 5V6z" fill="none" stroke="#8A2BE2" stroke-width="2.5"/>
+      <circle cx="32" cy="32" r="3.4" fill="#FFD700"/>
+    </svg>
+    <!-- login -->
+    <div id="subLogin" class="sub active">
+      <h1 class="logo-word">AXON</h1>
+      <p class="auth-tag">Bridging Logic and Intuition</p>
+      <div class="auth-form">
+        <div class="field"><label>Username</label><input id="liUser" placeholder="your handle" autocomplete="username"></div>
+        <div class="field"><label>Password</label><input id="liPass" type="password" placeholder="••••••••" autocomplete="current-password"></div>
+        <div class="err" id="liErr"></div>
+        <div class="auth-actions">
+          <button class="btn primary" id="doLogin">Log In</button>
+          <button class="linkbtn" id="toCreate">Create Account</button>
+        </div>
+      </div>
+    </div>
+    <!-- create -->
+    <div id="subCreate" class="sub">
+      <h1 class="logo-word" style="font-size:34px">Create Account</h1>
+      <p class="auth-tag">Establish your neural profile</p>
+      <div class="auth-form">
+        <div class="field"><label>Full Name</label><input id="cName" placeholder="Ada Lovelace"></div>
+        <div class="field"><label>Username</label><input id="cUser" placeholder="choose a handle"></div>
+        <div class="field"><label>Password</label><input id="cPass" type="password" placeholder="choose a password"></div>
+        <div class="err" id="cErr"></div>
+        <div class="auth-actions">
+          <button class="btn primary" id="doCreate">Create Account</button>
+          <button class="linkbtn" id="toLogin">Back to Login</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== LOGIN ANIM ===================== -->
+<div id="loginAnim">
+  <div class="pulse-ring"><span></span><span></span><span></span><div class="pulse-core"></div></div>
+  <div class="anim-line" id="animLine">Authenticating…</div>
+  <div class="welcome logo-word" id="welcomeMsg">WELCOME TO AXON</div>
+</div>
+
+<!-- ===================== APP ===================== -->
+<section id="app" class="view">
+  <nav>
+    <div class="nav-logo" id="navHome">
+      <svg width="30" height="30" viewBox="0 0 64 64" class="brainlogo">
+        <path d="M32 6c-7 0-11 5-12 9-6 0-10 5-10 10 0 3 1 6 4 8-2 2-3 5-3 7 0 6 5 10 11 10 2 3 5 5 10 5V6z" fill="none" stroke="#00BFFF" stroke-width="3"/>
+        <path d="M32 6c7 0 11 5 12 9 6 0 10 5 10 10 0 3-1 6-4 8 2 2 3 5 3 7 0 6-5 10-11 10-2 3-5 5-10 5V6z" fill="none" stroke="#8A2BE2" stroke-width="3"/>
+        <circle cx="32" cy="32" r="4" fill="#FFD700"/></svg>
+      <span class="logo-word">AXON</span>
+    </div>
+    <div class="nav-links" id="navLinks">
+      <button data-nav="chat" data-mode="logical">Logical</button>
+      <button data-nav="chat" data-mode="intuitive">Intuitive</button>
+      <button data-nav="chat" data-mode="duality">Duality Vision</button>
+      <button data-nav="know">Know Your Mind</button>
+      <button data-nav="minds">Explore Great Minds</button>
+    </div>
+    <div class="nav-right">
+      <div class="balance" id="balanceMeter"></div>
+      <button class="icon-btn" id="openSettings" title="Settings">⚙</button>
+      <button class="icon-btn" id="openProfile" title="Profile">◍</button>
+    </div>
+  </nav>
+
+  <div class="stage">
+    <!-- HOME -->
+    <div class="pane active" id="paneHome">
+      <div class="wrap">
+        <div class="home-hero">
+          <svg width="88" height="88" viewBox="0 0 64 64" class="brainlogo" style="margin:0 auto">
+            <path d="M32 6c-7 0-11 5-12 9-6 0-10 5-10 10 0 3 1 6 4 8-2 2-3 5-3 7 0 6 5 10 11 10 2 3 5 5 10 5V6z" fill="none" stroke="#00BFFF" stroke-width="2.4"/>
+            <path d="M32 6c7 0 11 5 12 9 6 0 10 5 10 10 0 3-1 6-4 8 2 2 3 5 3 7 0 6-5 10-11 10-2 3-5 5-10 5V6z" fill="none" stroke="#8A2BE2" stroke-width="2.4"/>
+            <circle cx="32" cy="32" r="3.6" fill="#FFD700"/></svg>
+          <h1 class="logo-word">AXON</h1>
+          <p>Bridging Logic and Intuition</p>
+        </div>
+        <div class="mode-grid">
+          <div class="mode-card glass c-logic" data-nav="chat" data-mode="logical">
+            <div class="glowline"></div><div class="ico">◇</div>
+            <h3>Logical</h3><p class="tag">Analytical Core</p>
+            <p>Structured, step-by-step, data-driven reasoning. The left hemisphere at work.</p>
+          </div>
+          <div class="mode-card glass c-intu" data-nav="chat" data-mode="intuitive">
+            <div class="glowline"></div><div class="ico">❉</div>
+            <h3>Intuitive</h3><p class="tag">Creative Core</p>
+            <p>Metaphor, story, and imagination. Answers that feel rather than compute.</p>
+          </div>
+          <div class="mode-card glass c-dual" data-nav="chat" data-mode="duality">
+            <div class="glowline"></div><div class="ico">◈</div>
+            <h3>Duality Vision</h3><p class="tag">Balanced Core</p>
+            <p>Logic and intuition fused — practical, insightful, whole-brained thinking.</p>
+          </div>
+          <div class="mode-card glass c-know" data-nav="know">
+            <div class="glowline"></div><div class="ico">◑</div>
+            <h3>Know Your Mind</h3><p class="tag">Cognitive Scan</p>
+            <p>Discover the balance within. A living analysis of how you think.</p>
+          </div>
+          <div class="mode-card glass c-minds" data-nav="minds">
+            <div class="glowline"></div><div class="ico">✦</div>
+            <h3>Explore Great Minds</h3><p class="tag">Historical Dialogue</p>
+            <p>Step into the mind of any thinker in history and hold a conversation.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CHAT -->
+    <div class="pane" id="paneChat">
+      <div class="wrap">
+        <div class="chat-head">
+          <div class="chat-title">
+            <div class="dot" id="chatDot"></div>
+            <div><h2 id="chatTitle">Logical</h2><div class="sub" id="chatSub">Analytical Mode</div></div>
+          </div>
+          <div class="mode-switch" id="modeSwitch">
+            <button data-m="logical">Logical</button>
+            <button data-m="intuitive">Intuitive</button>
+            <button data-m="duality">Duality</button>
+            <button data-m="trinity">Trinity</button>
+          </div>
+        </div>
+        <div class="msgs" id="chatMsgs"></div>
+        <div class="composer">
+          <input id="chatInput" placeholder="Ask AXON anything…">
+          <button class="btn primary" id="chatSend">Send</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- KNOW YOUR MIND -->
+    <div class="pane" id="paneKnow">
+      <div class="wrap" id="knowWrap"></div>
+    </div>
+
+    <!-- GREAT MINDS -->
+    <div class="pane" id="paneMinds">
+      <div class="wrap" id="mindsWrap"></div>
+    </div>
+  </div>
+</section>
+
+<!-- SETTINGS -->
+<div class="overlay" id="settingsOverlay">
+  <div class="panel glass" style="border-radius:0">
+    <button class="icon-btn close" id="closeSettings">✕</button>
+    <h3>Settings</h3>
+    <p class="hint">AXON connects to any OpenAI-compatible chat API. Your keys stay in this browser (localStorage) — nothing is sent to a server of ours.</p>
+    <div class="field"><label>API Endpoint</label>
+      <input id="setEndpoint" placeholder="https://api.openai.com/v1/chat/completions"></div>
+    <div class="preset-row" id="presets"></div>
+    <div class="field"><label>API Key</label><input id="setKey" type="password" placeholder="sk-…"></div>
+    <div class="field"><label>Model Name</label><input id="setModel" placeholder="gpt-4o-mini"></div>
+    <button class="btn primary" id="saveSettings" style="width:100%">Save Settings</button>
+    <div class="saved" id="setSaved"></div>
+  </div>
+</div>
+
+<!-- PROFILE -->
+<div class="overlay" id="profileOverlay">
+  <div class="panel glass" style="border-radius:0">
+    <button class="icon-btn close" id="closeProfile">✕</button>
+    <h3>Profile</h3>
+    <p class="hint">Your neural identity within AXON.</p>
+    <div id="profileBody"></div>
+    <button class="btn" id="doLogout" style="width:100%;margin-top:24px">Log Out</button>
+  </div>
+</div>
+
+<script>
+"use strict";
+/* ============================================================
+   STORAGE HELPERS
+============================================================ */
+const LS = {
+  get:(k,d)=>{try{const v=localStorage.getItem(k);return v?JSON.parse(v):d;}catch(e){return d;}},
+  set:(k,v)=>localStorage.setItem(k,JSON.stringify(v)),
+};
+const USERS_KEY='axon_users';
+const CUR_KEY='axon_currentUser';
+const SET_KEY='axon_settings';
+
+/* ============================================================
+   GLOBAL STATE
+============================================================ */
+const state = {
+  user:null,
+  mode:'logical',       // logical | intuitive | duality | trinity
+  chat:[],              // {role, content, mode?}
+  minds:{active:null, profile:null, history:[]},
+  know:{questions:[], answers:[], idx:0, running:false},
+};
+
+/* ============================================================
+   NEURAL CANVAS  (left=blue, right=purple, center=gold)
+============================================================ */
+(function neural(){
+  const cv=document.getElementById('neural'), ctx=cv.getContext('2d');
+  let W,H,nodes=[]; const N=Math.min(90,Math.floor((innerWidth*innerHeight)/16000));
+  function resize(){W=cv.width=innerWidth;H=cv.height=innerHeight;}
+  function tint(x){ // x 0..1
+    if(x<0.42) return [0,191,255];
+    if(x>0.58) return [138,43,226];
+    return [255,215,0];
+  }
+  function init(){resize();nodes=[];for(let i=0;i<N;i++){nodes.push({
+    x:Math.random()*W,y:Math.random()*H,vx:(Math.random()-.5)*.25,vy:(Math.random()-.5)*.25,r:Math.random()*1.6+.6});}}
+  function step(){
+    ctx.clearRect(0,0,W,H);
+    for(const n of nodes){
+      n.x+=n.vx;n.y+=n.vy;
+      if(n.x<0||n.x>W)n.vx*=-1; if(n.y<0||n.y>H)n.vy*=-1;
+    }
+    for(let i=0;i<nodes.length;i++){
+      for(let j=i+1;j<nodes.length;j++){
+        const a=nodes[i],b=nodes[j];
+        const dx=a.x-b.x,dy=a.y-b.y,d=Math.hypot(dx,dy);
+        if(d<130){
+          const mx=(a.x+b.x)/2;const c=tint(mx/W);
+          ctx.strokeStyle=`rgba(${c[0]},${c[1]},${c[2]},${(1-d/130)*.16})`;
+          ctx.lineWidth=.6;ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke();
+        }
+      }
+    }
+    for(const n of nodes){
+      const c=tint(n.x/W);
+      ctx.fillStyle=`rgba(${c[0]},${c[1]},${c[2]},.55)`;
+      ctx.beginPath();ctx.arc(n.x,n.y,n.r,0,7);ctx.fill();
+    }
+    requestAnimationFrame(step);
+  }
+  addEventListener('resize',()=>{resize();});
+  init();step();
+})();
+
+/* ============================================================
+   VIEW ROUTING
+============================================================ */
+function showView(id){document.querySelectorAll('.view').forEach(v=>v.classList.toggle('active',v.id===id));}
+function showPane(name){
+  document.querySelectorAll('.pane').forEach(p=>p.classList.remove('active'));
+  const p=document.getElementById('pane'+name.charAt(0).toUpperCase()+name.slice(1));
+  if(p)p.classList.add('active');
+  document.querySelectorAll('#navLinks button').forEach(b=>{
+    b.classList.toggle('on', b.dataset.nav===name && (!b.dataset.mode || b.dataset.mode===state.mode));
+  });
+}
+
+/* ============================================================
+   SETTINGS
+============================================================ */
+function getSettings(){return LS.get(SET_KEY,{endpoint:'',key:'',model:''});}
+const PRESETS=[
+  ['OpenAI','https://api.openai.com/v1/chat/completions','gpt-4o-mini'],
+  ['OpenRouter','https://openrouter.ai/api/v1/chat/completions','openai/gpt-4o-mini'],
+  ['Groq','https://api.groq.com/openai/v1/chat/completions','llama-3.3-70b-versatile'],
+  ['DeepSeek','https://api.deepseek.com/v1/chat/completions','deepseek-chat'],
+  ['Together','https://api.together.xyz/v1/chat/completions','meta-llama/Llama-3.3-70B-Instruct-Turbo'],
+  ['Mistral','https://api.mistral.ai/v1/chat/completions','mistral-large-latest'],
+];
+function initSettingsPanel(){
+  const s=getSettings();
+  setEndpoint.value=s.endpoint; setKey.value=s.key; setModel.value=s.model;
+  const pr=document.getElementById('presets'); pr.innerHTML='';
+  PRESETS.forEach(([name,ep,model])=>{
+    const b=document.createElement('button');b.textContent=name;
+    b.onclick=()=>{setEndpoint.value=ep; if(!setModel.value)setModel.value=model;};
+    pr.appendChild(b);
+  });
+}
+document.getElementById('saveSettings').onclick=()=>{
+  LS.set(SET_KEY,{endpoint:setEndpoint.value.trim(),key:setKey.value.trim(),model:setModel.value.trim()});
+  const el=document.getElementById('setSaved');el.textContent='✓ Saved to this browser';
+  setTimeout(()=>el.textContent='',2200);
+};
+const openSettings=()=>{initSettingsPanel();document.getElementById('settingsOverlay').classList.add('active');};
+document.getElementById('openSettings').onclick=openSettings;
+document.getElementById('closeSettings').onclick=()=>document.getElementById('settingsOverlay').classList.remove('active');
+document.getElementById('settingsOverlay').onclick=e=>{if(e.target.id==='settingsOverlay')e.currentTarget.classList.remove('active');};
+
+/* ============================================================
+   AI CALL  (OpenAI-compatible, streaming + JSON)
+============================================================ */
+async function aiComplete(messages,{stream=false,onToken=null,temperature=0.85}={}){
+  const s=getSettings();
+  if(!s.endpoint||!s.key||!s.model) throw new Error('NO_SETTINGS');
+  const res=await fetch(s.endpoint,{
+    method:'POST',
+    headers:{'Content-Type':'application/json','Authorization':'Bearer '+s.key},
+    body:JSON.stringify({model:s.model,messages,stream,temperature})
+  });
+  if(!res.ok){let t='';try{t=await res.text();}catch(e){}throw new Error('API '+res.status+' — '+t.slice(0,180));}
+  if(!stream){const d=await res.json();return d.choices?.[0]?.message?.content ?? '';}
+  const reader=res.body.getReader(),dec=new TextDecoder();let buf='',full='';
+  while(true){
+    const {done,value}=await reader.read(); if(done)break;
+    buf+=dec.decode(value,{stream:true});
+    const lines=buf.split('\n'); buf=lines.pop();
+    for(const line of lines){
+      const l=line.trim(); if(!l.startsWith('data:'))continue;
+      const p=l.slice(5).trim(); if(p==='[DONE]')continue;
+      try{const j=JSON.parse(p);const dlt=j.choices?.[0]?.delta?.content||'';
+        if(dlt){full+=dlt;if(onToken)onToken(dlt);}}catch(e){}
+    }
+  }
+  return full;
+}
+function extractJSON(text){
+  let t=String(text).trim().replace(/^```(?:json)?/i,'').replace(/```$/,'').trim();
+  try{return JSON.parse(t);}catch(e){}
+  const m=t.match(/[\[{][\s\S]*[\]}]/);
+  if(m){try{return JSON.parse(m[0]);}catch(e){}}
+  throw new Error('Could not parse AI response as JSON.');
+}
+function noSettingsMsg(){return 'AXON needs an AI connection first. Open Settings (⚙) and add an API endpoint, key, and model.';}
+
+/* ============================================================
+   BALANCE METER
+============================================================ */
+function balKey(){return 'axon_balance_'+state.user.username;}
+function getBalance(){return LS.get(balKey(),{logical:1,intuitive:1,duality:1});}
+function bumpBalance(mode){
+  if(!['logical','intuitive','duality'].includes(mode))return;
+  const b=getBalance();b[mode]=(b[mode]||0)+1;LS.set(balKey(),b);renderBalance();
+}
+function renderBalance(){
+  const b=getBalance();const total=b.logical+b.intuitive+b.duality||1;
+  const p=m=>Math.round((b[m]/total)*100);
+  document.getElementById('balanceMeter').innerHTML=`
+    <div class="row"><span class="lab">Logical</span><span class="track"><i class="fill fl" style="width:${p('logical')}%"></i></span><span class="pct">${p('logical')}%</span></div>
+    <div class="row"><span class="lab">Intuitive</span><span class="track"><i class="fill fi" style="width:${p('intuitive')}%"></i></span><span class="pct">${p('intuitive')}%</span></div>
+    <div class="row"><span class="lab">Duality</span><span class="track"><i class="fill fd" style="width:${p('duality')}%"></i></span><span class="pct">${p('duality')}%</span></div>`;
+}
+
+/* ============================================================
+   MODE CONFIG
+============================================================ */
+const MODES={
+  logical:{name:'Logical',sub:'Analytical Mode',color:'#00BFFF',
+    prompt:"You are AXON operating in LOGICAL mode. Always respond analytically, factually, and in a structured manner. Use step-by-step reasoning whenever appropriate. Be precise and objective."},
+  intuitive:{name:'Intuitive',sub:'Creative Mode',color:'#8A2BE2',
+    prompt:"You are AXON operating in INTUITIVE mode. Always respond creatively using metaphors, storytelling, imagination, and emotional intelligence. Be evocative and human."},
+  duality:{name:'Duality Vision',sub:'Balanced Mode',color:'#FFD700',
+    prompt:"You are AXON operating in DUALITY VISION mode. Combine logic and intuition to provide responses that are analytical, creative, practical, and insightful."},
+};
+
+/* ============================================================
+   CHAT
+============================================================ */
+const chatMsgs=document.getElementById('chatMsgs');
+function setChatMode(m){
+  state.mode=m;
+  document.querySelectorAll('#modeSwitch button').forEach(b=>b.classList.toggle('on',b.dataset.m===m));
+  const cfg=MODES[m];
+  if(cfg){
+    document.getElementById('chatTitle').textContent=cfg.name;
+    document.getElementById('chatSub').textContent=cfg.sub;
+    document.getElementById('chatDot').style.background=cfg.color;
+    document.getElementById('chatDot').style.boxShadow='0 0 12px '+cfg.color;
+  }else{ // trinity
+    document.getElementById('chatTitle').textContent='Trinity';
+    document.getElementById('chatSub').textContent='All Three Minds';
+    document.getElementById('chatDot').style.background='linear-gradient(90deg,#00BFFF,#FFD700,#8A2BE2)';
+    document.getElementById('chatDot').style.boxShadow='0 0 12px rgba(255,215,0,.6)';
+  }
+  // preferred mode saved
+  if(cfg && state.user){state.user.preferredMode=m;saveUser(state.user);}
+  document.querySelectorAll('#navLinks button[data-mode]').forEach(b=>b.classList.toggle('on',b.dataset.mode===m));
+}
+document.getElementById('modeSwitch').addEventListener('click',e=>{
+  const b=e.target.closest('button');if(!b)return;setChatMode(b.dataset.m);
+});
+function addUserBubble(text){
+  const d=document.createElement('div');d.className='msg user';
+  d.innerHTML=`<div class="bubble"></div>`;d.querySelector('.bubble').textContent=text;
+  chatMsgs.appendChild(d);scrollChat();
+}
+function thinkingEl(){
+  const d=document.createElement('div');d.className='thinking';
+  d.innerHTML=`<span class="tdot"></span>
+    <svg class="eeg" viewBox="0 0 70 26"><polyline points="0,13 8,13 12,4 16,22 20,13 30,13 34,8 38,18 42,13 70,13"/></svg>
+    <span>AXON is thinking…</span>`;
+  chatMsgs.appendChild(d);scrollChat();return d;
+}
+function scrollChat(){const s=document.querySelector('.stage');s.scrollTop=s.scrollHeight;}
+
+function aiCardEl(mode){
+  const cfg=MODES[mode];
+  const d=document.createElement('div');d.className='card '+mode;
+  d.innerHTML=`<div class="who"><span style="width:8px;height:8px;border-radius:50%;background:${cfg.color};display:inline-block"></span>${cfg.name}</div><div class="body"></div>`;
+  return d;
+}
+function addPreferBtn(container,mode){
+  const b=document.createElement('button');b.className='prefer';b.textContent='I Prefer This Response';
+  b.onclick=()=>{if(b.classList.contains('done'))return;bumpBalance(mode);b.classList.add('done');b.textContent='✓ Preference Logged';};
+  container.appendChild(b);
+}
+
+async function sendChat(){
+  const input=document.getElementById('chatInput');
+  const text=input.value.trim();if(!text)return;
+  if(!getSettings().endpoint){addUserBubble(text);const w=document.createElement('div');w.className='msg ai';w.innerHTML='<div class="card duality"><div class="body"></div></div>';w.querySelector('.body').textContent=noSettingsMsg();chatMsgs.appendChild(w);scrollChat();input.value='';return;}
+  input.value='';
+  addUserBubble(text);
+  state.chat.push({role:'user',content:text});
+  const th=thinkingEl();
+
+  if(state.mode==='trinity'){
+    th.remove();
+    const wrap=document.createElement('div');wrap.className='trinity';chatMsgs.appendChild(wrap);
+    const modes=['logical','intuitive','duality'];
+    await Promise.all(modes.map(async m=>{
+      const card=aiCardEl(m);wrap.appendChild(card);
+      const body=card.querySelector('.body');body.textContent='…';let acc='';
+      try{
+        const msgs=[{role:'system',content:MODES[m].prompt}].concat(state.chat.slice(-8));
+        await aiComplete(msgs,{stream:true,onToken:t=>{acc+=t;body.textContent=acc;scrollChat();}});
+        if(!acc)body.textContent='(no response)';
+      }catch(err){body.textContent='⚠ '+err.message;}
+      addPreferBtn(card,m);
+    }));
+    scrollChat();
+  }else{
+    const m=state.mode;
+    const wrap=document.createElement('div');wrap.className='msg ai';
+    const card=aiCardEl(m);wrap.appendChild(card);
+    const body=card.querySelector('.body');let acc='';
+    try{
+      const msgs=[{role:'system',content:MODES[m].prompt}].concat(state.chat.slice(-10));
+      th.remove();chatMsgs.appendChild(wrap);
+      await aiComplete(msgs,{stream:true,onToken:t=>{acc+=t;body.textContent=acc;scrollChat();}});
+      if(!acc)body.textContent='(no response)';
+      state.chat.push({role:'assistant',content:acc});
+    }catch(err){th.remove();chatMsgs.appendChild(wrap);body.textContent='⚠ '+err.message;}
+    addPreferBtn(card,m);
+    scrollChat();
+  }
+  saveChatSession();
+}
+document.getElementById('chatSend').onclick=sendChat;
+document.getElementById('chatInput').addEventListener('keydown',e=>{if(e.key==='Enter')sendChat();});
+function chatKey(){return 'axon_chat_'+state.user.username;}
+function saveChatSession(){LS.set(chatKey(),state.chat.slice(-40));}
+
+/* ============================================================
+   KNOW YOUR MIND
+============================================================ */
+const knowWrap=document.getElementById('knowWrap');
+function renderKnowIntro(){
+  state.know={questions:[],answers:[],idx:0,running:false};
+  knowWrap.innerHTML=`
+    <div class="center-hero">
+      <div class="eyebrow">Feature 01</div>
+      <h2 class="logo-word">Know Your Mind</h2>
+      <div class="tagline">Discover the balance within</div>
+      <p class="desc">A cognitive scan of how you think. Every session generates a fresh set of questions across logic, creativity, ethics, curiosity, leadership and more — no two scans are alike. Answer honestly; there are no wrong choices.</p>
+      <button class="btn primary" id="startKnow">Begin the Scan</button>
+    </div>`;
+  const prev=LS.get('axon_mind_'+state.user.username,null);
+  if(prev){
+    const c=document.createElement('div');c.style.maxWidth='680px';c.style.margin='30px auto 0';c.className='glass';c.style.padding='20px 24px';
+    c.innerHTML=`<div class="eyebrow" style="margin-bottom:8px">Previous Result</div>
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:12px">
+      <span style="font-family:var(--mono);letter-spacing:.14em">${prev.dominant} · Logic ${prev.logical}% / Creative ${prev.creative}%</span>
+      <button class="btn" id="viewPrev" style="padding:9px 16px">View</button></div>`;
+    knowWrap.appendChild(c);
+    document.getElementById('viewPrev').onclick=()=>renderKnowResult(prev);
+  }
+  document.getElementById('startKnow').onclick=startKnow;
+}
+async function startKnow(){
+  if(!getSettings().endpoint){knowWrap.innerHTML=`<div class="q-card glass" style="text-align:center">${noSettingsMsg()}</div>`;return;}
+  knowWrap.innerHTML=`<div class="q-card glass" style="text-align:center">
+    <div class="thinking" style="justify-content:center;border:none;background:none">
+    <span class="tdot"></span><svg class="eeg" viewBox="0 0 70 26"><polyline points="0,13 8,13 12,4 16,22 20,13 30,13 34,8 38,18 42,13 70,13"/></svg>
+    <span>Generating a unique cognitive profile…</span></div></div>`;
+  const seed=Math.random().toString(36).slice(2);
+  const sys="You are AXON's cognitive assessment engine. Generate exactly 10 psychologically insightful multiple-choice questions that reveal how a person thinks. Cover a spread of these categories: Logic, Creativity, Ethics, Leadership, Curiosity, Observation, Problem Solving, Adaptability, Innovation, Philosophy, Imagination, Future Thinking, Human Behavior, Risk Taking, Decision Making. Questions must be intriguing scenarios or thought experiments — NOT generic personality-test items (never ask about favorite color, introversion, or happiness). Each question has exactly 4 distinct options. Respond with ONLY a JSON array, no prose, no markdown fences. Each element: {\"question\":string,\"category\":string,\"options\":[4 strings]}.";
+  try{
+    const raw=await aiComplete([{role:'system',content:sys},{role:'user',content:'Generate a fresh set now. Variation seed: '+seed+'. Make them different from any typical set.'}],{temperature:1.0});
+    let qs=extractJSON(raw);
+    if(!Array.isArray(qs))throw new Error('bad format');
+    qs=qs.filter(q=>q&&q.question&&Array.isArray(q.options)&&q.options.length>=2).slice(0,10);
+    if(qs.length<4)throw new Error('too few questions');
+    state.know={questions:qs,answers:[],idx:0,running:true};
+    renderQuestion();
+  }catch(err){
+    knowWrap.innerHTML=`<div class="q-card glass" style="text-align:center">⚠ Couldn't generate questions: ${err.message}<br><br><button class="btn" id="retryKnow">Try Again</button></div>`;
+    document.getElementById('retryKnow').onclick=startKnow;
+  }
+}
+function renderQuestion(){
+  const {questions,idx}=state.know;const q=questions[idx];
+  const pct=Math.round((idx/questions.length)*100);
+  knowWrap.innerHTML=`<div class="q-card glass">
+    <div class="q-prog"><span>${q.category||'Cognition'}</span><span>Question ${idx+1} / ${questions.length}</span></div>
+    <div class="q-bar"><i style="width:${pct}%"></i></div>
+    <div class="q-text"></div>
+    <div class="q-opts"></div></div>`;
+  knowWrap.querySelector('.q-text').textContent=q.question;
+  const opts=knowWrap.querySelector('.q-opts');
+  q.options.forEach((o,i)=>{
+    const b=document.createElement('button');b.className='opt';b.textContent=o;
+    b.onclick=()=>{
+      state.know.answers.push({question:q.question,category:q.category||'',chosen:o});
+      state.know.idx++;
+      if(state.know.idx>=questions.length)analyzeMind();else renderQuestion();
+    };
+    opts.appendChild(b);
+  });
+}
+async function analyzeMind(){
+  knowWrap.innerHTML=`<div class="result-card glass" style="text-align:center">
+    <div class="thinking" style="justify-content:center;border:none;background:none">
+    <span class="tdot"></span><svg class="eeg" viewBox="0 0 70 26"><polyline points="0,13 8,13 12,4 16,22 20,13 30,13 34,8 38,18 42,13 70,13"/></svg>
+    <span>Analyzing your cognitive signature…</span></div></div>`;
+  const sys="You are AXON's cognitive analysis engine. Given a person's answers to a thinking-style assessment, produce a nuanced psychological profile. Respond with ONLY JSON, no prose or fences: {\"logical\":int 0-100,\"creative\":int 0-100,\"curiosity\":int 0-100,\"leadership\":int 0-100,\"adaptability\":int 0-100,\"risk\":int 0-100,\"problemSolving\":int 0-100,\"dominant\":\"LOGICAL\"|\"INTUITIVE\"|\"BALANCED\",\"traits\":[4 short trait strings],\"insight\":\"one profound sentence about how this person thinks\"}. logical + creative should sum to roughly 100. Choose BALANCED only when they are within ~12 points of each other.";
+  try{
+    const raw=await aiComplete([{role:'system',content:sys},{role:'user',content:'Answers:\n'+JSON.stringify(state.know.answers,null,1)}],{temperature:0.7});
+    const r=extractJSON(raw);
+    LS.set('axon_mind_'+state.user.username,r);
+    renderKnowResult(r);
+  }catch(err){
+    knowWrap.innerHTML=`<div class="result-card glass" style="text-align:center">⚠ Analysis failed: ${err.message}<br><br><button class="btn" id="retryAn">Restart Scan</button></div>`;
+    document.getElementById('retryAn').onclick=renderKnowIntro;
+  }
+}
+function renderKnowResult(r){
+  const clamp=n=>Math.max(0,Math.min(100,Math.round(n||0)));
+  const dom=(r.dominant||'BALANCED').toUpperCase();
+  const stats=[['Logical Thinking',r.logical],['Creative Thinking',r.creative],['Curiosity Quotient',r.curiosity],
+    ['Leadership Potential',r.leadership],['Adaptability Score',r.adaptability],['Risk Appetite',r.risk],['Problem Solving',r.problemSolving]];
+  const traits=(r.traits||[]).map(t=>`<span class="trait">${escapeHtml(t)}</span>`).join('');
+  knowWrap.innerHTML=`<div class="result-card glass">
+    <div class="eyebrow" style="text-align:center;margin-bottom:8px">Mind Analysis Complete</div>
+    <h2 class="logo-word">Your Cognitive Signature</h2>
+    <div class="hemi ${dom}">Dominant Hemisphere · ${dom}</div>
+    <div class="stat-grid">
+      ${stats.map(([k,v])=>`<div class="stat"><div class="top"><span>${k}</span><span class="v">${clamp(v)}%</span></div><div class="track"><i data-w="${clamp(v)}"></i></div></div>`).join('')}
+    </div>
+    <div class="eyebrow" style="text-align:center;margin-bottom:12px">Psychological Traits</div>
+    <div class="traits">${traits}</div>
+    <div class="insight">"${escapeHtml(r.insight||'You navigate the world with a mind uniquely your own.')}"</div>
+    <div style="text-align:center;margin-top:26px"><button class="btn primary" id="rescan">Run a New Scan</button></div>
+  </div>`;
+  knowWrap.querySelectorAll('.stat .track i').forEach(i=>{i.style.background='linear-gradient(90deg,#00BFFF,#FFD700,#8A2BE2)';});
+  requestAnimationFrame(()=>{knowWrap.querySelectorAll('.stat .track i').forEach(i=>{i.style.width=i.dataset.w+'%';});});
+  document.getElementById('rescan').onclick=renderKnowIntro;
+}
+
+/* ============================================================
+   EXPLORE GREAT MINDS
+============================================================ */
+const mindsWrap=document.getElementById('mindsWrap');
+const MIND_SUGGEST=['Nikola Tesla','Albert Einstein','Leonardo da Vinci','APJ Abdul Kalam','Marie Curie','Alan Turing','Socrates','Ada Lovelace'];
+function renderMindsIntro(){
+  state.minds={active:null,profile:null,history:[]};
+  mindsWrap.innerHTML=`<div class="center-hero">
+      <div class="eyebrow">Feature 02</div>
+      <h2 class="logo-word">Explore Great Minds</h2>
+      <div class="tagline">Whose mind would you like to step into today?</div>
+      <div class="mind-input">
+        <input id="mindName" placeholder="Enter a name…">
+        <button class="btn primary" id="mindGo">Enter</button>
+      </div>
+      <div class="suggest">${MIND_SUGGEST.map(n=>`<button data-n="${n}">${n}</button>`).join('')}</div>
+    </div>`;
+  mindsWrap.querySelectorAll('.suggest button').forEach(b=>b.onclick=()=>{document.getElementById('mindName').value=b.dataset.n;summonMind(b.dataset.n);});
+  document.getElementById('mindGo').onclick=()=>summonMind(document.getElementById('mindName').value.trim());
+  document.getElementById('mindName').addEventListener('keydown',e=>{if(e.key==='Enter')summonMind(e.target.value.trim());});
+}
+async function summonMind(name){
+  if(!name)return;
+  if(!getSettings().endpoint){mindsWrap.innerHTML=`<div class="persona-profile glass" style="text-align:center">${noSettingsMsg()}</div>`;return;}
+  mindsWrap.innerHTML=`<div class="persona-profile glass" style="text-align:center">
+    <div class="thinking" style="justify-content:center;border:none;background:none">
+    <span class="tdot"></span><svg class="eeg" viewBox="0 0 70 26"><polyline points="0,13 8,13 12,4 16,22 20,13 30,13 34,8 38,18 42,13 70,13"/></svg>
+    <span>Reconstructing the mind of ${escapeHtml(name)}…</span></div></div>`;
+  const sys="You are AXON's historical-mind analyzer. Given a name of a famous personality (any era, any field), analyze them and respond with ONLY JSON, no prose or fences: {\"name\":string,\"traits\":[3 short trait strings],\"era\":string (e.g. '1856–1943'),\"style\":[2-3 speaking-style descriptors],\"knownFor\":[3 achievements],\"greeting\":\"a short in-character opening line as if greeting the visitor\"}. If the name is unclear, pick the most likely famous person.";
+  try{
+    const raw=await aiComplete([{role:'system',content:sys},{role:'user',content:'Analyze: '+name}],{temperature:0.7});
+    const p=extractJSON(raw);
+    state.minds={active:p.name||name,profile:p,history:[]};
+    renderMindStage(p);
+  }catch(err){
+    mindsWrap.innerHTML=`<div class="persona-profile glass" style="text-align:center">⚠ ${err.message}<br><br><button class="btn" id="backMinds">Back</button></div>`;
+    document.getElementById('backMinds').onclick=renderMindsIntro;
+  }
+}
+function personaSystem(p){
+  return `You ARE ${p.name}. Fully embody this historical personality: their personality (${(p.traits||[]).join(', ')}), speaking style (${(p.style||[]).join(', ')}), era (${p.era||''}), values, beliefs, worldview, and thinking patterns. Known for: ${(p.knownFor||[]).join(', ')}. Speak in first person as ${p.name}. Stay in character at all times, referencing your own era's knowledge and perspective. Keep responses vivid but reasonably concise. This is an AI interpretation for educational purposes.`;
+}
+function renderMindStage(p){
+  mindsWrap.innerHTML=`
+    <div style="max-width:760px;margin:0 auto 14px;display:flex;justify-content:space-between;align-items:center">
+      <button class="btn" id="mindBack" style="padding:9px 16px">← New Mind</button>
+    </div>
+    <div class="persona-banner">AI Interpretation of Historical Personality</div>
+    <div class="persona-profile glass">
+      <h2 class="logo-word">${escapeHtml(p.name||'')}</h2>
+      <div class="pp-era">${escapeHtml(p.era||'')}</div>
+      <div class="pp-meta">
+        <div class="b"><div class="k">Traits</div><div class="val">${(p.traits||[]).map(escapeHtml).join(' · ')}</div></div>
+        <div class="b"><div class="k">Speaking Style</div><div class="val">${(p.style||[]).map(escapeHtml).join(' · ')}</div></div>
+        <div class="b"><div class="k">Known For</div><div class="val">${(p.knownFor||[]).map(escapeHtml).join(' · ')}</div></div>
+      </div>
+    </div>
+    <div class="chatbox"><div class="msgs" id="mindMsgs" style="padding-top:0"></div>
+      <div class="composer"><input id="mindInput" placeholder="Speak with ${escapeHtml(p.name||'them')}…"><button class="btn primary" id="mindSend">Send</button></div>
+    </div>`;
+  document.getElementById('mindBack').onclick=renderMindsIntro;
+  document.getElementById('mindSend').onclick=sendMind;
+  document.getElementById('mindInput').addEventListener('keydown',e=>{if(e.key==='Enter')sendMind();});
+  if(p.greeting){addMindMsg('ai',p.greeting);}
+}
+function addMindMsg(role,text){
+  const box=document.getElementById('mindMsgs');
+  if(role==='user'){
+    const d=document.createElement('div');d.className='msg user';d.innerHTML='<div class="bubble"></div>';
+    d.querySelector('.bubble').textContent=text;box.appendChild(d);
+  }else{
+    const d=document.createElement('div');d.className='msg ai';
+    d.innerHTML=`<div class="card duality"><div class="who"><span style="width:8px;height:8px;border-radius:50%;background:var(--dual);display:inline-block"></span>${escapeHtml(state.minds.active)} <span style="color:var(--gray);letter-spacing:.1em">(AI Interpretation)</span></div><div class="body"></div></div>`;
+    d.querySelector('.body').textContent=text;box.appendChild(d);
+  }
+  scrollChat();return box.lastChild;
+}
+async function sendMind(){
+  const input=document.getElementById('mindInput');const text=input.value.trim();if(!text)return;
+  input.value='';addMindMsg('user',text);
+  state.minds.history.push({role:'user',content:text});
+  const box=document.getElementById('mindMsgs');
+  const th=document.createElement('div');th.className='thinking';
+  th.innerHTML=`<span class="tdot"></span><svg class="eeg" viewBox="0 0 70 26"><polyline points="0,13 8,13 12,4 16,22 20,13 30,13 34,8 38,18 42,13 70,13"/></svg><span>${escapeHtml(state.minds.active)} is thinking…</span>`;
+  box.appendChild(th);scrollChat();
+  try{
+    const msgs=[{role:'system',content:personaSystem(state.minds.profile)}].concat(state.minds.history.slice(-10));
+    th.remove();const el=addMindMsg('ai','');const body=el.querySelector('.body');let acc='';
+    await aiComplete(msgs,{stream:true,onToken:t=>{acc+=t;body.textContent=acc;scrollChat();}});
+    if(!acc)body.textContent='(silence)';
+    state.minds.history.push({role:'assistant',content:acc});
+  }catch(err){th.remove();addMindMsg('ai','⚠ '+err.message);}
+}
+
+/* ============================================================
+   NAV WIRING
+============================================================ */
+function navTo(name,mode){
+  if(name==='chat'){setChatMode(mode||state.mode||'logical');}
+  if(name==='know')renderKnowIntro();
+  if(name==='minds')renderMindsIntro();
+  showPane(name);
+  document.querySelector('.stage').scrollTop=0;
+}
+document.querySelectorAll('[data-nav]').forEach(el=>{
+  el.addEventListener('click',()=>navTo(el.dataset.nav,el.dataset.mode));
+});
+document.getElementById('navHome').onclick=()=>showPane('home');
+
+/* ============================================================
+   PROFILE
+============================================================ */
+document.getElementById('openProfile').onclick=()=>{
+  const u=state.user;const b=getBalance();const total=b.logical+b.intuitive+b.duality||1;
+  const mind=LS.get('axon_mind_'+u.username,null);
+  document.getElementById('profileBody').innerHTML=`
+    <div class="prof-row"><span class="k">Full Name</span><span>${escapeHtml(u.fullName||'—')}</span></div>
+    <div class="prof-row"><span class="k">Username</span><span>${escapeHtml(u.username)}</span></div>
+    <div class="prof-row"><span class="k">Preferred Mode</span><span>${escapeHtml(u.preferredMode||state.mode)}</span></div>
+    <div class="prof-row"><span class="k">Balance</span><span>L ${Math.round(b.logical/total*100)}% · I ${Math.round(b.intuitive/total*100)}% · D ${Math.round(b.duality/total*100)}%</span></div>
+    <div class="prof-row"><span class="k">Last Mind Scan</span><span>${mind?`${mind.dominant} (${mind.logical}/${mind.creative})`:'Not yet run'}</span></div>`;
+  document.getElementById('profileOverlay').classList.add('active');
+};
+document.getElementById('closeProfile').onclick=()=>document.getElementById('profileOverlay').classList.remove('active');
+document.getElementById('profileOverlay').onclick=e=>{if(e.target.id==='profileOverlay')e.currentTarget.classList.remove('active');};
+document.getElementById('doLogout').onclick=()=>{
+  localStorage.removeItem(CUR_KEY);state.user=null;state.chat=[];
+  document.getElementById('profileOverlay').classList.remove('active');
+  showView('auth');showSub('Login');
+};
+
+/* ============================================================
+   AUTH LOGIC
+============================================================ */
+function getUsers(){return LS.get(USERS_KEY,{});}
+function saveUser(u){const us=getUsers();us[u.username]=u;LS.set(USERS_KEY,us);state.user=u;}
+function showSub(which){
+  document.getElementById('subLogin').classList.toggle('active',which==='Login');
+  document.getElementById('subCreate').classList.toggle('active',which==='Create');
+  document.getElementById('liErr').textContent='';document.getElementById('cErr').textContent='';
+}
+document.getElementById('toCreate').onclick=()=>showSub('Create');
+document.getElementById('toLogin').onclick=()=>showSub('Login');
+
+document.getElementById('doCreate').onclick=()=>{
+  const fullName=document.getElementById('cName').value.trim();
+  const username=document.getElementById('cUser').value.trim();
+  const password=document.getElementById('cPass').value;
+  const err=document.getElementById('cErr');
+  if(!fullName||!username||!password){err.textContent='All fields are required.';return;}
+  const us=getUsers();
+  if(us[username]){err.textContent='That username already exists.';return;}
+  const u={fullName,username,password,preferredMode:'logical'};
+  saveUser(u);
+  LS.set('axon_balance_'+username,{logical:1,intuitive:1,duality:1});
+  err.textContent='';
+  document.getElementById('liUser').value=username;
+  showSub('Login');
+  document.getElementById('liErr').style.color='var(--dual)';
+  document.getElementById('liErr').textContent='Account created — log in to continue.';
+  setTimeout(()=>{document.getElementById('liErr').style.color='';document.getElementById('liErr').textContent='';},3000);
+};
+document.getElementById('doLogin').onclick=()=>{
+  const username=document.getElementById('liUser').value.trim();
+  const password=document.getElementById('liPass').value;
+  const err=document.getElementById('liErr');err.style.color='';
+  const us=getUsers();const u=us[username];
+  if(!u||u.password!==password){err.textContent='Invalid username or password.';return;}
+  err.textContent='';
+  LS.set(CUR_KEY,username);
+  runLoginAnim(u);
+};
+document.getElementById('liPass').addEventListener('keydown',e=>{if(e.key==='Enter')document.getElementById('doLogin').click();});
+document.getElementById('cPass').addEventListener('keydown',e=>{if(e.key==='Enter')document.getElementById('doCreate').click();});
+
+function runLoginAnim(u){
+  const overlay=document.getElementById('loginAnim');
+  const line=document.getElementById('animLine');const welcome=document.getElementById('welcomeMsg');
+  welcome.classList.remove('show');line.style.display='';
+  overlay.classList.add('active');
+  const steps=['Authenticating…','Establishing Neural Connection…','Synchronizing Synapses…'];
+  let i=0;line.textContent=steps[0];
+  const iv=setInterval(()=>{i++;if(i<steps.length)line.textContent=steps[i];},650);
+  setTimeout(()=>{
+    clearInterval(iv);line.style.display='none';welcome.classList.add('show');
+    setTimeout(()=>{overlay.classList.remove('active');enterApp(u);},1400);
+  },2000);
+}
+function enterApp(u){
+  state.user=u;state.mode=u.preferredMode||'logical';
+  state.chat=LS.get(chatKey(),[]);
+  showView('app');renderBalance();
+  setChatMode(state.mode);
+  // rebuild chat history visually (last few)
+  chatMsgs.innerHTML='';
+  showPane('home');
+}
+
+/* ============================================================
+   UTIL + BOOT
+============================================================ */
+function escapeHtml(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+
+(function boot(){
+  initSettingsPanel();
+  const cur=LS.get(CUR_KEY,null);
+  if(cur){const u=getUsers()[cur];if(u){enterApp(u);return;}}
+  showView('auth');showSub('Login');
+})();
+</script>
+</body>
+</html>
