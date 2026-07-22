@@ -575,7 +575,7 @@ function initSettingsPanel(){
   selectedEndpoint = s.endpoint || PRESETS[0][1];
   // adopt the stored model, else the default model of the matched provider
   const match = PRESETS.find(p=>p[1]===selectedEndpoint);
-  selectedModel = s.model || (match?match[2]:PRESETS[0][2]);
+  selectedModel = match ? match[2] : (s.model || PRESETS[0][2]);
   setKey.value=s.key;
   renderPresets();
 }
@@ -606,11 +606,13 @@ document.getElementById('settingsOverlay').onclick=e=>{if(e.target.id==='setting
 ============================================================ */
 async function aiComplete(messages,{stream=false,onToken=null,temperature=0.85}={}){
   const s=getSettings();
-  if(!s.endpoint||!s.key||!s.model) throw new Error('NO_SETTINGS');
+  if(!s.endpoint||!s.key) throw new Error('NO_SETTINGS');
+  const preset=PRESETS.find(p=>p[1]===s.endpoint);        // model is fixed per provider
+  const model=preset?preset[2]:s.model;                    // ignore any stale stored model
   const res=await fetch(s.endpoint,{
     method:'POST',
     headers:{'Content-Type':'application/json','Authorization':'Bearer '+s.key},
-    body:JSON.stringify({model:s.model,messages,stream,temperature})
+    body:JSON.stringify({model,messages,stream,temperature})
   });
   if(!res.ok){
     let t='';try{t=await res.text();}catch(e){}
