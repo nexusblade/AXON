@@ -162,6 +162,12 @@ nav{display:flex;align-items:center;gap:20px;padding:14px 24px;z-index:20;
 .mode-switch button.on[data-m=intuitive]{background:var(--intu);color:#fff}
 .mode-switch button.on[data-m=duality]{background:var(--dual)}
 .mode-switch button.on[data-m=trinity]{background:linear-gradient(90deg,var(--logic),var(--dual),var(--intu))}
+.mode-intro{border:1px solid var(--glass-brd);background:var(--glass);backdrop-filter:blur(16px);
+  border-radius:16px;padding:15px 20px;margin-bottom:18px;border-left:3px solid var(--dual);animation:fade .4s}
+.mode-intro .mi-t{font-family:var(--mono);font-size:11px;letter-spacing:.18em;text-transform:uppercase;
+  margin-bottom:8px;display:flex;align-items:center;gap:8px}
+.mode-intro .mi-dot{width:8px;height:8px;border-radius:50%;display:inline-block}
+.mode-intro p{color:var(--gray);line-height:1.6;font-size:13.5px}
 
 .msgs{display:flex;flex-direction:column;gap:18px;padding:8px 2px 20px}
 .msg{max-width:80%;animation:msgin .4s cubic-bezier(.2,.8,.2,1)}
@@ -273,6 +279,7 @@ nav{display:flex;align-items:center;gap:20px;padding:14px 24px;z-index:20;
 .preset-row button{font-family:var(--mono);font-size:10px;padding:6px 10px;border-radius:8px;
   border:1px solid var(--glass-brd);background:rgba(255,255,255,.03);color:var(--gray);cursor:pointer;transition:.2s}
 .preset-row button:hover{color:var(--white);border-color:var(--logic)}
+.preset-row button.sel{color:#060606;background:var(--dual);border-color:var(--dual);font-weight:800}
 .saved{color:var(--dual);font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-align:center;
   min-height:16px;margin-top:10px}
 .prof-row{display:flex;justify-content:space-between;padding:14px 0;border-bottom:1px solid rgba(255,255,255,.06);
@@ -425,6 +432,7 @@ nav{display:flex;align-items:center;gap:20px;padding:14px 24px;z-index:20;
             <button data-m="trinity">Trinity</button>
           </div>
         </div>
+        <div class="mode-intro" id="modeIntro"></div>
         <div class="msgs" id="chatMsgs"></div>
         <div class="composer">
           <input id="chatInput" placeholder="Ask AXON anything…">
@@ -450,10 +458,9 @@ nav{display:flex;align-items:center;gap:20px;padding:14px 24px;z-index:20;
   <div class="panel glass" style="border-radius:0">
     <button class="icon-btn close" id="closeSettings">✕</button>
     <h3>Settings</h3>
-    <p class="hint">AXON connects to any OpenAI-compatible chat API. Your keys stay in this browser (localStorage) — nothing is sent to a server of ours.</p>
-    <div class="field"><label>API Endpoint</label>
-      <input id="setEndpoint" placeholder="https://api.openai.com/v1/chat/completions"></div>
-    <div class="preset-row" id="presets"></div>
+    <p class="hint">Pick your provider, then add the API key and model name for it. Everything stays in this browser (localStorage) — nothing is sent to a server of ours.</p>
+    <div class="field"><label>Provider</label>
+      <div class="preset-row" id="presets"></div></div>
     <div class="field"><label>API Key</label><input id="setKey" type="password" placeholder="sk-…"></div>
     <div class="field"><label>Model Name</label><input id="setModel" placeholder="gpt-4o-mini"></div>
     <button class="btn primary" id="saveSettings" style="width:100%">Save Settings</button>
@@ -563,20 +570,26 @@ const PRESETS=[
   ['Together','https://api.together.xyz/v1/chat/completions','meta-llama/Llama-3.3-70B-Instruct-Turbo'],
   ['Mistral','https://api.mistral.ai/v1/chat/completions','mistral-large-latest'],
 ];
+let selectedEndpoint='';
 function initSettingsPanel(){
   const s=getSettings();
-  setEndpoint.value=s.endpoint; setKey.value=s.key; setModel.value=s.model;
+  selectedEndpoint = s.endpoint || PRESETS[0][1];
+  setKey.value=s.key; setModel.value=s.model;
+  renderPresets();
+}
+function renderPresets(){
   const pr=document.getElementById('presets'); pr.innerHTML='';
   PRESETS.forEach(([name,ep,model])=>{
     const b=document.createElement('button');b.textContent=name;
-    b.onclick=()=>{setEndpoint.value=ep; if(!setModel.value)setModel.value=model;};
+    if(ep===selectedEndpoint)b.classList.add('sel');
+    b.onclick=()=>{selectedEndpoint=ep; if(!setModel.value.trim())setModel.value=model; renderPresets();};
     pr.appendChild(b);
   });
 }
 document.getElementById('saveSettings').onclick=()=>{
-  LS.set(SET_KEY,{endpoint:setEndpoint.value.trim(),key:setKey.value.trim(),model:setModel.value.trim()});
-  const el=document.getElementById('setSaved');el.textContent='✓ Saved to this browser';
-  setTimeout(()=>el.textContent='',2200);
+  LS.set(SET_KEY,{endpoint:selectedEndpoint,key:setKey.value.trim(),model:setModel.value.trim()});
+  const el=document.getElementById('setSaved');el.textContent='✓ Saved';
+  setTimeout(()=>{document.getElementById('settingsOverlay').classList.remove('active');el.textContent='';},750);
 };
 const openSettings=()=>{initSettingsPanel();document.getElementById('settingsOverlay').classList.add('active');};
 document.getElementById('openSettings').onclick=openSettings;
@@ -594,7 +607,16 @@ async function aiComplete(messages,{stream=false,onToken=null,temperature=0.85}=
     headers:{'Content-Type':'application/json','Authorization':'Bearer '+s.key},
     body:JSON.stringify({model:s.model,messages,stream,temperature})
   });
-  if(!res.ok){let t='';try{t=await res.text();}catch(e){}throw new Error('API '+res.status+' — '+t.slice(0,180));}
+  if(!res.ok){
+    let t='';try{t=await res.text();}catch(e){}
+    if(res.status===401||res.status===403)
+      throw new Error('Your API key was rejected (401). Open Settings ⚙ and check that the key is correct and matches the endpoint\u2019s provider.');
+    if(res.status===429)
+      throw new Error('Rate limited or out of credits (429). Check your provider account, then retry.');
+    if(res.status===404)
+      throw new Error('Endpoint or model not found (404). Check the Provider and Model Name in Settings ⚙.');
+    throw new Error('API '+res.status+' — '+t.slice(0,180));
+  }
   if(!stream){const d=await res.json();return d.choices?.[0]?.message?.content ?? '';}
   const reader=res.body.getReader(),dec=new TextDecoder();let buf='',full='';
   while(true){
@@ -642,12 +664,16 @@ function renderBalance(){
 ============================================================ */
 const MODES={
   logical:{name:'Logical',sub:'Analytical Mode',color:'#00BFFF',
+    desc:'Breaks problems down step by step. Expect structured, factual, data-driven answers with clear reasoning — best for analysis, planning, math, code, and decisions where precision matters.',
     prompt:"You are AXON operating in LOGICAL mode. Always respond analytically, factually, and in a structured manner. Use step-by-step reasoning whenever appropriate. Be precise and objective."},
   intuitive:{name:'Intuitive',sub:'Creative Mode',color:'#8A2BE2',
+    desc:'Thinks in metaphor and story. Expect imaginative, emotionally aware answers that explore meaning and possibility — best for creativity, reflection, brainstorming, and seeing things from a new angle.',
     prompt:"You are AXON operating in INTUITIVE mode. Always respond creatively using metaphors, storytelling, imagination, and emotional intelligence. Be evocative and human."},
   duality:{name:'Duality Vision',sub:'Balanced Mode',color:'#FFD700',
+    desc:'Fuses both hemispheres. Expect answers that are analytical and creative at once — grounded and practical, yet insightful. Reach for this when you want the whole picture, not just one side.',
     prompt:"You are AXON operating in DUALITY VISION mode. Combine logic and intuition to provide responses that are analytical, creative, practical, and insightful."},
 };
+const TRINITY_DESC='Runs all three minds on the same question at once, side by side, so you can compare how logic, intuition, and balance each respond — then tap "I Prefer This Response" to shape your Balance Meter.';
 
 /* ============================================================
    CHAT
@@ -671,6 +697,13 @@ function setChatMode(m){
   // preferred mode saved
   if(cfg && state.user){state.user.preferredMode=m;saveUser(state.user);}
   document.querySelectorAll('#navLinks button[data-mode]').forEach(b=>b.classList.toggle('on',b.dataset.mode===m));
+  // explainer card
+  const intro=document.getElementById('modeIntro');
+  const color = cfg?cfg.color:'#FFD700';
+  const name  = cfg?cfg.name+' Mode':'Trinity · All Three Minds';
+  const desc  = cfg?cfg.desc:TRINITY_DESC;
+  intro.style.borderLeftColor=color;
+  intro.innerHTML=`<div class="mi-t" style="color:${color}"><span class="mi-dot" style="background:${color}"></span>${name}</div><p>${desc}</p>`;
 }
 document.getElementById('modeSwitch').addEventListener('click',e=>{
   const b=e.target.closest('button');if(!b)return;setChatMode(b.dataset.m);
@@ -755,7 +788,7 @@ function renderKnowIntro(){
   state.know={questions:[],answers:[],idx:0,running:false};
   knowWrap.innerHTML=`
     <div class="center-hero">
-      <div class="eyebrow">Feature 01</div>
+      <div class="eyebrow">Cognitive Scan</div>
       <h2 class="logo-word">Know Your Mind</h2>
       <div class="tagline">Discover the balance within</div>
       <p class="desc">A cognitive scan of how you think. Every session generates a fresh set of questions across logic, creativity, ethics, curiosity, leadership and more — no two scans are alike. Answer honestly; there are no wrong choices.</p>
@@ -861,7 +894,7 @@ const MIND_SUGGEST=['Nikola Tesla','Albert Einstein','Leonardo da Vinci','APJ Ab
 function renderMindsIntro(){
   state.minds={active:null,profile:null,history:[]};
   mindsWrap.innerHTML=`<div class="center-hero">
-      <div class="eyebrow">Feature 02</div>
+      <div class="eyebrow">Historical Dialogue</div>
       <h2 class="logo-word">Explore Great Minds</h2>
       <div class="tagline">Whose mind would you like to step into today?</div>
       <div class="mind-input">
