@@ -458,11 +458,10 @@ nav{display:flex;align-items:center;gap:20px;padding:14px 24px;z-index:20;
   <div class="panel glass" style="border-radius:0">
     <button class="icon-btn close" id="closeSettings">✕</button>
     <h3>Settings</h3>
-    <p class="hint">Pick your provider, then add the API key and model name for it. Everything stays in this browser (localStorage) — nothing is sent to a server of ours.</p>
+    <p class="hint">Pick your provider and paste its API key. AXON selects a suitable model automatically. Everything stays in this browser (localStorage) — nothing is sent to a server of ours.</p>
     <div class="field"><label>Provider</label>
       <div class="preset-row" id="presets"></div></div>
     <div class="field"><label>API Key</label><input id="setKey" type="password" placeholder="sk-…"></div>
-    <div class="field"><label>Model Name</label><input id="setModel" placeholder="gpt-4o-mini"></div>
     <button class="btn primary" id="saveSettings" style="width:100%">Save Settings</button>
     <div class="saved" id="setSaved"></div>
   </div>
@@ -570,11 +569,14 @@ const PRESETS=[
   ['Together','https://api.together.xyz/v1/chat/completions','meta-llama/Llama-3.3-70B-Instruct-Turbo'],
   ['Mistral','https://api.mistral.ai/v1/chat/completions','mistral-large-latest'],
 ];
-let selectedEndpoint='';
+let selectedEndpoint='', selectedModel='';
 function initSettingsPanel(){
   const s=getSettings();
   selectedEndpoint = s.endpoint || PRESETS[0][1];
-  setKey.value=s.key; setModel.value=s.model;
+  // adopt the stored model, else the default model of the matched provider
+  const match = PRESETS.find(p=>p[1]===selectedEndpoint);
+  selectedModel = s.model || (match?match[2]:PRESETS[0][2]);
+  setKey.value=s.key;
   renderPresets();
 }
 function renderPresets(){
@@ -582,12 +584,15 @@ function renderPresets(){
   PRESETS.forEach(([name,ep,model])=>{
     const b=document.createElement('button');b.textContent=name;
     if(ep===selectedEndpoint)b.classList.add('sel');
-    b.onclick=()=>{selectedEndpoint=ep; if(!setModel.value.trim())setModel.value=model; renderPresets();};
+    b.onclick=()=>{
+      selectedEndpoint=ep; selectedModel=model;  // switching provider adopts its default model
+      renderPresets();
+    };
     pr.appendChild(b);
   });
 }
 document.getElementById('saveSettings').onclick=()=>{
-  LS.set(SET_KEY,{endpoint:selectedEndpoint,key:setKey.value.trim(),model:setModel.value.trim()});
+  LS.set(SET_KEY,{endpoint:selectedEndpoint,key:setKey.value.trim(),model:selectedModel});
   const el=document.getElementById('setSaved');el.textContent='✓ Saved';
   setTimeout(()=>{document.getElementById('settingsOverlay').classList.remove('active');el.textContent='';},750);
 };
@@ -614,7 +619,7 @@ async function aiComplete(messages,{stream=false,onToken=null,temperature=0.85}=
     if(res.status===429)
       throw new Error('Rate limited or out of credits (429). Check your provider account, then retry.');
     if(res.status===404)
-      throw new Error('Endpoint or model not found (404). Check the Provider and Model Name in Settings ⚙.');
+      throw new Error('The selected provider\u2019s model is unavailable (404). Try a different Provider in Settings ⚙.');
     throw new Error('API '+res.status+' — '+t.slice(0,180));
   }
   if(!stream){const d=await res.json();return d.choices?.[0]?.message?.content ?? '';}
