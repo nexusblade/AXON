@@ -461,7 +461,7 @@ nav{display:flex;align-items:center;gap:20px;padding:14px 24px;z-index:20;
     <p class="hint">Pick your provider and paste its API key. AXON selects a suitable model automatically. Everything stays in this browser (localStorage) — nothing is sent to a server of ours.</p>
     <div class="field"><label>Provider</label>
       <div class="preset-row" id="presets"></div></div>
-    <div class="field"><label>API Key</label><input id="setKey" type="password" placeholder="sk-…"></div>
+    <div class="field"><label>API Key</label><input id="setKey" type="password" placeholder="Paste your API key"></div>
     <button class="btn primary" id="saveSettings" style="width:100%">Save Settings</button>
     <div class="saved" id="setSaved"></div>
   </div>
@@ -581,6 +581,15 @@ function initSettingsPanel(){
 }
 function renderPresets(){
   const pr=document.getElementById('presets'); pr.innerHTML='';
+  const hints={
+    'https://api.openai.com/v1/chat/completions':'sk-…',
+    'https://openrouter.ai/api/v1/chat/completions':'sk-or-…',
+    'https://api.groq.com/openai/v1/chat/completions':'gsk_…',
+    'https://api.deepseek.com/v1/chat/completions':'sk-…',
+    'https://api.together.xyz/v1/chat/completions':'your Together key',
+    'https://api.mistral.ai/v1/chat/completions':'your Mistral key',
+  };
+  setKey.placeholder='Paste your API key ('+(hints[selectedEndpoint]||'API key')+')';
   PRESETS.forEach(([name,ep,model])=>{
     const b=document.createElement('button');b.textContent=name;
     if(ep===selectedEndpoint)b.classList.add('sel');
@@ -621,7 +630,7 @@ async function aiComplete(messages,{stream=false,onToken=null,temperature=0.85}=
     if(res.status===429)
       throw new Error('Rate limited or out of credits (429). Check your provider account, then retry.');
     if(res.status===404)
-      throw new Error('The selected provider\u2019s model is unavailable (404). Try a different Provider in Settings ⚙.');
+      throw new Error('Model "'+model+'" was not found (404) at this provider. '+(t?('Provider said: '+t.slice(0,140)):'Try a different Provider in Settings ⚙.'));
     throw new Error('API '+res.status+' — '+t.slice(0,180));
   }
   if(!stream){const d=await res.json();return d.choices?.[0]?.message?.content ?? '';}
@@ -1097,6 +1106,12 @@ function enterApp(u){
 function escapeHtml(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 
 (function boot(){
+  // self-heal: if stored settings use a known provider, force its correct model
+  const s=getSettings();
+  if(s.endpoint){
+    const p=PRESETS.find(x=>x[1]===s.endpoint);
+    if(p && s.model!==p[2]) LS.set(SET_KEY,{endpoint:s.endpoint,key:s.key,model:p[2]});
+  }
   initSettingsPanel();
   const cur=LS.get(CUR_KEY,null);
   if(cur){const u=getUsers()[cur];if(u){enterApp(u);return;}}
