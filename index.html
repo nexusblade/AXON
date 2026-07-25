@@ -97,8 +97,9 @@ label{display:block;font-family:var(--mono);font-size:10px;letter-spacing:.2em;
 @keyframes welcomeIn{from{opacity:0;transform:scale(.85);letter-spacing:.5em}to{opacity:1;transform:none;letter-spacing:.24em}}
 
 /* ---------- APP SHELL ---------- */
-#app{display:none;flex-direction:column;height:100%}
+#app{display:none;height:100%}
 #app.active{display:flex}
+#mainCol{flex:1;display:flex;flex-direction:column;min-width:0;height:100%}
 nav{display:flex;align-items:center;gap:20px;padding:14px 24px;z-index:20;
   border-bottom:1px solid var(--glass-brd);background:rgba(10,10,10,.55);
   backdrop-filter:blur(20px);position:relative}
@@ -124,6 +125,62 @@ nav{display:flex;align-items:center;gap:20px;padding:14px 24px;z-index:20;
 .fl{background:linear-gradient(90deg,var(--logic),#7fe0ff)}
 .fi{background:linear-gradient(90deg,var(--intu),#c07fff)}
 .fd{background:linear-gradient(90deg,var(--dual),#fff0a0)}
+
+/* ---------- SIDEBAR ---------- */
+#sidebar{width:280px;flex-shrink:0;height:100%;border-right:1px solid var(--glass-brd);
+  background:rgba(10,10,10,.55);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
+  overflow:hidden;transition:width .3s cubic-bezier(.2,.8,.2,1);position:relative;z-index:25}
+#sidebar.collapsed{width:76px}
+.sb-inner{width:280px;height:100%;display:flex;flex-direction:column;padding:16px 14px 14px;gap:16px;overflow-y:auto;overflow-x:hidden}
+.sb-head{display:flex;align-items:center;gap:10px;padding:2px 2px 4px;border-bottom:1px solid rgba(255,255,255,.06);padding-bottom:14px}
+.sb-avatar{width:34px;height:34px;border-radius:50%;flex-shrink:0;display:grid;place-items:center;overflow:hidden;
+  background:rgba(255,255,255,.05);border:1.5px solid var(--glass-brd);color:var(--gray)}
+.sb-avatar img{width:100%;height:100%;object-fit:cover}
+.sb-headtxt{min-width:0;flex:1}
+.sb-headname{font-size:12.5px;font-weight:700;letter-spacing:.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sb-headuser{font-family:var(--mono);font-size:10px;color:var(--gray);letter-spacing:.05em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sb-collapse{flex-shrink:0;font-size:13px}
+.sb-section{display:flex;flex-direction:column;gap:8px}
+.sb-label{font-family:var(--mono);font-size:10px;letter-spacing:.22em;text-transform:uppercase;color:var(--gray);padding:0 4px;white-space:nowrap}
+.sb-feature{display:flex;align-items:center;gap:12px;padding:14px;border-radius:16px;cursor:pointer;
+  border:1px solid var(--glass-brd);transition:.25s;font-size:13.5px;font-weight:700;letter-spacing:.02em;
+  white-space:nowrap;overflow:hidden}
+.sb-feature .ic{font-size:19px;flex-shrink:0;width:20px;text-align:center}
+.sb-feature.know{background:linear-gradient(120deg,rgba(0,191,255,.14),rgba(138,43,226,.14));
+  border-color:rgba(0,191,255,.35);box-shadow:0 0 22px -10px rgba(0,191,255,.5)}
+.sb-feature.know:hover{background:linear-gradient(120deg,rgba(0,191,255,.24),rgba(138,43,226,.22));
+  box-shadow:0 0 28px -6px rgba(0,191,255,.6);transform:translateY(-2px)}
+.sb-feature.minds{background:linear-gradient(120deg,rgba(255,215,0,.16),rgba(0,191,255,.12));
+  border-color:rgba(255,215,0,.35);box-shadow:0 0 22px -10px rgba(255,215,0,.5)}
+.sb-feature.minds:hover{background:linear-gradient(120deg,rgba(255,215,0,.26),rgba(0,191,255,.2));
+  box-shadow:0 0 28px -6px rgba(255,215,0,.6);transform:translateY(-2px)}
+.sb-feature.on{outline:2px solid var(--dual);outline-offset:1px}
+.sb-hist-wrap{display:flex;flex-direction:column;gap:8px;flex:1;min-height:0}
+.sb-newchat{display:flex;align-items:center;gap:8px;justify-content:center;padding:11px 12px;border-radius:13px;
+  border:1px dashed var(--glass-brd);color:var(--gray);cursor:pointer;font-family:var(--mono);font-size:11px;
+  letter-spacing:.1em;text-transform:uppercase;transition:.2s;background:none}
+.sb-newchat:hover{color:var(--white);border-color:var(--dual);background:rgba(255,215,0,.06)}
+.sb-hist{display:flex;flex-direction:column;gap:6px;overflow-y:auto;flex:1;min-height:0}
+.sb-hist-item{display:flex;align-items:center;gap:6px;padding:9px 9px;border-radius:12px;
+  background:rgba(255,255,255,.03);border:1px solid transparent;cursor:pointer;transition:.2s}
+.sb-hist-item:hover{background:rgba(255,255,255,.07);border-color:var(--glass-brd)}
+.sb-hist-item.on{border-color:var(--dual);background:rgba(255,215,0,.07)}
+.shi-main{display:flex;align-items:center;gap:9px;flex:1;min-width:0;overflow:hidden}
+.shi-txt{min-width:0;flex:1}
+.shi-title{font-size:12.5px;color:var(--white);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.shi-time{font-family:var(--mono);font-size:9.5px;color:var(--gray);margin-top:2px;white-space:nowrap}
+.shi-del{flex-shrink:0;background:none;border:none;color:#5a616e;cursor:pointer;font-size:12px;
+  padding:5px 7px;border-radius:7px;transition:.2s}
+.shi-del:hover{color:#ff6b81;background:rgba(255,107,129,.1)}
+.dotm{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.sb-empty{color:#5a616e;font-size:11.5px;text-align:center;padding:16px 6px;font-family:var(--mono);letter-spacing:.05em}
+#sidebar.collapsed .sb-hide{display:none}
+#sidebar.collapsed .sb-feature{justify-content:center;padding:14px 0}
+#sidebar.collapsed .sb-head{justify-content:center}
+#sidebar.collapsed .sb-newchat{padding:11px 0}
+#sidebarOverlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:22}
+#sidebarOverlay.active{display:block}
+#sidebarToggle{display:none}
 
 .stage{flex:1;overflow-y:auto;position:relative}
 .wrap{max-width:1180px;margin:0 auto;padding:34px 24px 60px;width:100%}
@@ -289,12 +346,24 @@ nav{display:flex;align-items:center;gap:20px;padding:14px 24px;z-index:20;
   border-radius:12px;padding:14px;line-height:1.5;margin-top:14px}
 .warn a{color:var(--dual)}
 
+.pf-avatar{width:96px;height:96px;border-radius:50%;overflow:hidden;border:2px solid var(--glass-brd);
+  display:grid;place-items:center;background:rgba(255,255,255,.04);
+  box-shadow:0 0 26px -8px rgba(255,215,0,.4), 0 0 26px -10px rgba(0,191,255,.3)}
+.pf-avatar img{width:100%;height:100%;object-fit:cover}
+.pf-avatar-actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
+
 @media(max-width:720px){
   .nav-links{order:3;width:100%;margin:6px 0 0}
   .balance{min-width:120px}
   nav{flex-wrap:wrap;gap:12px}
   .wrap{padding:24px 16px 50px}
   .home-hero h1{font-size:56px}
+}
+@media(max-width:900px){
+  #sidebarToggle{display:grid}
+  #sidebar{position:fixed;top:0;left:0;bottom:0;width:280px;transform:translateX(-100%)}
+  #sidebar.collapsed{width:280px}
+  #sidebar.open{transform:translateX(0);box-shadow:20px 0 60px rgba(0,0,0,.5)}
 }
 @media(prefers-reduced-motion:reduce){*{animation-duration:.01ms!important;transition-duration:.01ms!important}}
 </style>
@@ -353,7 +422,38 @@ nav{display:flex;align-items:center;gap:20px;padding:14px 24px;z-index:20;
 
 <!-- ===================== APP ===================== -->
 <section id="app" class="view">
+  <aside id="sidebar">
+    <div class="sb-inner">
+      <div class="sb-head">
+        <div class="sb-avatar" id="sbAvatarWrap">
+          <svg id="sbAvatarSvg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-6 8-6s8 2 8 6"/></svg>
+          <img id="sbAvatarImg" style="display:none" alt="">
+        </div>
+        <div class="sb-headtxt sb-hide">
+          <div class="sb-headname" id="sbHeadName">Guest</div>
+          <div class="sb-headuser" id="sbHeadUser">@user</div>
+        </div>
+        <button class="icon-btn sb-collapse" id="sidebarCollapseBtn" title="Collapse sidebar">«</button>
+      </div>
+
+      <div class="sb-section">
+        <div class="sb-label sb-hide">Cognitive Tools</div>
+        <div class="sb-feature know" data-nav="know" title="Know Your Mind"><span class="ic">◑</span><span class="sb-hide">Know Your Mind</span></div>
+        <div class="sb-feature minds" data-nav="minds" title="Explore Great Minds"><span class="ic">✦</span><span class="sb-hide">Explore Great Minds</span></div>
+      </div>
+
+      <div class="sb-hist-wrap">
+        <div class="sb-label sb-hide">Chat History</div>
+        <div class="sb-newchat" id="newChatBtn" title="New Chat"><span>+</span><span class="sb-hide">New Chat</span></div>
+        <div class="sb-hist" id="sbHist"><div class="sb-empty sb-hide">No conversations yet</div></div>
+      </div>
+    </div>
+  </aside>
+  <div id="sidebarOverlay"></div>
+
+  <div id="mainCol">
   <nav>
+    <button class="icon-btn" id="sidebarToggle" title="Menu">☰</button>
     <div class="nav-logo" id="navHome">
       <svg width="30" height="30" viewBox="0 0 64 64" class="brainlogo">
         <path d="M32 6c-7 0-11 5-12 9-6 0-10 5-10 10 0 3 1 6 4 8-2 2-3 5-3 7 0 6 5 10 11 10 2 3 5 5 10 5V6z" fill="none" stroke="#00BFFF" stroke-width="3"/>
@@ -365,13 +465,14 @@ nav{display:flex;align-items:center;gap:20px;padding:14px 24px;z-index:20;
       <button data-nav="chat" data-mode="logical">Logical</button>
       <button data-nav="chat" data-mode="intuitive">Intuitive</button>
       <button data-nav="chat" data-mode="duality">Duality Vision</button>
-      <button data-nav="know">Know Your Mind</button>
-      <button data-nav="minds">Explore Great Minds</button>
     </div>
     <div class="nav-right">
       <div class="balance" id="balanceMeter"></div>
       <button class="icon-btn" id="openSettings" title="Settings">⚙</button>
-      <button class="icon-btn" id="openProfile" title="Profile">◍</button>
+      <button class="icon-btn" id="openProfile" title="Profile" style="overflow:hidden;padding:0;border-radius:50%;border-color:rgba(255,215,0,.4);box-shadow:0 0 14px -3px rgba(0,191,255,.55),0 0 14px -3px rgba(138,43,226,.45)">
+        <svg id="profileIconSvg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#FFD700" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-6 8-6s8 2 8 6"/></svg>
+        <img id="profileAvatarThumb" style="display:none;width:100%;height:100%;object-fit:cover" alt="">
+      </button>
     </div>
   </nav>
 
@@ -451,6 +552,7 @@ nav{display:flex;align-items:center;gap:20px;padding:14px 24px;z-index:20;
       <div class="wrap" id="mindsWrap"></div>
     </div>
   </div>
+  </div><!-- /#mainCol -->
 </section>
 
 <!-- SETTINGS -->
@@ -458,7 +560,7 @@ nav{display:flex;align-items:center;gap:20px;padding:14px 24px;z-index:20;
   <div class="panel glass" style="border-radius:0">
     <button class="icon-btn close" id="closeSettings">✕</button>
     <h3>Settings</h3>
-    <p class="hint">Pick your provider and paste its API key. AXON selects a suitable model automatically. Everything stays in this browser (localStorage) — nothing is sent to a server of ours.</p>
+    <p class="hint">Pick your provider and paste its API key. AXON selects a suitable model automatically.</p>
     <div class="field"><label>Provider</label>
       <div class="preset-row" id="presets"></div></div>
     <div class="field"><label>API Key</label><input id="setKey" type="password" placeholder="Paste your API key"></div>
@@ -473,6 +575,17 @@ nav{display:flex;align-items:center;gap:20px;padding:14px 24px;z-index:20;
     <button class="icon-btn close" id="closeProfile">✕</button>
     <h3>Profile</h3>
     <p class="hint">Your neural identity within AXON.</p>
+    <div style="display:flex;flex-direction:column;align-items:center;gap:14px;margin-bottom:24px">
+      <div class="pf-avatar" id="avatarPreviewWrap">
+        <img id="avatarPreview" style="display:none" alt="">
+        <svg id="avatarPlaceholder" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--gray)" stroke-width="1.6"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-6 8-6s8 2 8 6"/></svg>
+      </div>
+      <input type="file" id="avatarInput" accept="image/*" style="display:none">
+      <div class="pf-avatar-actions">
+        <button class="btn" id="avatarBtn" style="padding:8px 14px;font-size:10.5px">Upload / Change Picture</button>
+        <button class="btn" id="avatarRemoveBtn" style="padding:8px 14px;font-size:10.5px">Remove Picture</button>
+      </div>
+    </div>
     <div id="profileBody"></div>
     <button class="btn" id="doLogout" style="width:100%;margin-top:24px">Log Out</button>
   </div>
@@ -498,7 +611,8 @@ const state = {
   user:null,
   mode:'logical',       // logical | intuitive | duality | trinity
   chat:[],              // {role, content, mode?}
-  minds:{active:null, profile:null, history:[]},
+  activeConvId:null,
+  minds:{active:null, profile:null, history:[], convId:null},
   know:{questions:[], answers:[], idx:0, running:false},
 };
 
@@ -555,6 +669,10 @@ function showPane(name){
   document.querySelectorAll('#navLinks button').forEach(b=>{
     b.classList.toggle('on', b.dataset.nav===name && (!b.dataset.mode || b.dataset.mode===state.mode));
   });
+  document.querySelectorAll('.sb-feature').forEach(b=>b.classList.toggle('on', b.dataset.nav===name));
+  const sb=document.getElementById('sidebar'), ov=document.getElementById('sidebarOverlay');
+  if(sb)sb.classList.remove('open');
+  if(ov)ov.classList.remove('active');
 }
 
 /* ============================================================
@@ -669,10 +787,16 @@ function bumpBalance(mode){
 function renderBalance(){
   const b=getBalance();const total=b.logical+b.intuitive+b.duality||1;
   const p=m=>Math.round((b[m]/total)*100);
-  document.getElementById('balanceMeter').innerHTML=`
-    <div class="row"><span class="lab">Logical</span><span class="track"><i class="fill fl" style="width:${p('logical')}%"></i></span><span class="pct">${p('logical')}%</span></div>
-    <div class="row"><span class="lab">Intuitive</span><span class="track"><i class="fill fi" style="width:${p('intuitive')}%"></i></span><span class="pct">${p('intuitive')}%</span></div>
-    <div class="row"><span class="lab">Duality</span><span class="track"><i class="fill fd" style="width:${p('duality')}%"></i></span><span class="pct">${p('duality')}%</span></div>`;
+  const meter=document.getElementById('balanceMeter');
+  meter.innerHTML=`
+    <div class="row"><span class="lab">Logical</span><span class="track"><i class="fill fl" data-w="${p('logical')}" style="width:0%"></i></span><span class="pct">${p('logical')}%</span></div>
+    <div class="row"><span class="lab">Intuitive</span><span class="track"><i class="fill fi" data-w="${p('intuitive')}" style="width:0%"></i></span><span class="pct">${p('intuitive')}%</span></div>
+    <div class="row"><span class="lab">Duality</span><span class="track"><i class="fill fd" data-w="${p('duality')}" style="width:0%"></i></span><span class="pct">${p('duality')}%</span></div>`;
+  requestAnimationFrame(()=>{
+    requestAnimationFrame(()=>{
+      meter.querySelectorAll('.fill').forEach(el=>{el.style.width=el.dataset.w+'%';});
+    });
+  });
 }
 
 /* ============================================================
@@ -756,7 +880,7 @@ async function sendChat(){
   if(!getSettings().endpoint){addUserBubble(text);const w=document.createElement('div');w.className='msg ai';w.innerHTML='<div class="card duality"><div class="body"></div></div>';w.querySelector('.body').textContent=noSettingsMsg();chatMsgs.appendChild(w);scrollChat();input.value='';return;}
   input.value='';
   addUserBubble(text);
-  state.chat.push({role:'user',content:text});
+  state.chat.push({role:'user',content:text,ts:Date.now(),mode:state.mode});
   const th=thinkingEl();
 
   if(state.mode==='trinity'){
@@ -784,17 +908,147 @@ async function sendChat(){
       th.remove();chatMsgs.appendChild(wrap);
       await aiComplete(msgs,{stream:true,onToken:t=>{acc+=t;body.textContent=acc;scrollChat();}});
       if(!acc)body.textContent='(no response)';
-      state.chat.push({role:'assistant',content:acc});
+      state.chat.push({role:'assistant',content:acc,ts:Date.now(),mode:m});
     }catch(err){th.remove();chatMsgs.appendChild(wrap);body.textContent='⚠ '+err.message;}
     addPreferBtn(card,m);
     scrollChat();
   }
-  saveChatSession();
+  persistActiveConversation();
 }
 document.getElementById('chatSend').onclick=sendChat;
 document.getElementById('chatInput').addEventListener('keydown',e=>{if(e.key==='Enter')sendChat();});
-function chatKey(){return 'axon_chat_'+state.user.username;}
-function saveChatSession(){LS.set(chatKey(),state.chat.slice(-40));}
+
+/* ============================================================
+   CONVERSATION HISTORY (SIDEBAR)
+============================================================ */
+function convKey(){return 'axon_conversations_'+state.user.username;}
+function getConversations(){return LS.get(convKey(),[]);}
+function saveConversations(arr){LS.set(convKey(),arr);}
+function titleFromText(t){
+  const words=String(t||'').trim().split(/\s+/).slice(0,5).join(' ');
+  return words.length>34 ? words.slice(0,34)+'…' : (words||'New Chat');
+}
+function upsertConversation(conv){
+  const arr=getConversations();
+  const i=arr.findIndex(c=>c.id===conv.id);
+  conv.updatedAt=Date.now();
+  if(i>=0){conv.createdAt=arr[i].createdAt||Date.now();arr.splice(i,1);}
+  else{conv.createdAt=conv.createdAt||Date.now();}
+  arr.unshift(conv);
+  saveConversations(arr);
+  renderSidebarHistory();
+}
+function deleteConversation(id){
+  const arr=getConversations().filter(c=>c.id!==id);
+  saveConversations(arr);
+  if(state.activeConvId===id) startNewChat(false);
+  if(state.minds.convId===id) state.minds={active:null,profile:null,history:[],convId:null};
+  renderSidebarHistory();
+}
+function ensureActiveConvId(){
+  if(!state.activeConvId) state.activeConvId='c'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+  return state.activeConvId;
+}
+function persistActiveConversation(){
+  if(!state.chat.length)return;
+  const id=ensureActiveConvId();
+  const firstUser=state.chat.find(m=>m.role==='user');
+  upsertConversation({id,kind:'chat',title:titleFromText(firstUser?firstUser.content:''),mode:state.mode,messages:state.chat.slice(-60)});
+}
+function ensureMindsConvId(){
+  if(!state.minds.convId) state.minds.convId='m'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+  return state.minds.convId;
+}
+function persistMindsConversation(){
+  if(!state.minds.active)return;
+  const id=ensureMindsConvId();
+  upsertConversation({id,kind:'minds',title:state.minds.active,mode:'minds',profile:state.minds.profile,messages:state.minds.history.slice(-60)});
+}
+function relTime(ts){
+  if(!ts)return '';
+  const d=new Date(ts),now=new Date();
+  if(d.toDateString()===now.toDateString())return d.toLocaleTimeString([],{hour:'numeric',minute:'2-digit'});
+  const yest=new Date(now);yest.setDate(now.getDate()-1);
+  if(d.toDateString()===yest.toDateString())return 'Yesterday';
+  return d.toLocaleDateString([],{month:'short',day:'numeric'});
+}
+function renderSidebarHistory(){
+  const box=document.getElementById('sbHist'); if(!box||!state.user)return;
+  const arr=getConversations();
+  if(!arr.length){box.innerHTML='<div class="sb-empty sb-hide">No conversations yet</div>';return;}
+  const activeId=state.activeConvId||state.minds.convId;
+  box.innerHTML='';
+  arr.forEach(c=>{
+    const d=document.createElement('div');
+    d.className='sb-hist-item'+(c.id===activeId?' on':'');
+    const color=c.kind==='minds'?'#FFD700':(MODES[c.mode]?.color||'#FFD700');
+    d.innerHTML=`<div class="shi-main">
+        <span class="dotm" style="background:${color}"></span>
+        <div class="shi-txt sb-hide"><div class="shi-title"></div><div class="shi-time">${relTime(c.updatedAt)}</div></div>
+      </div>
+      <button class="shi-del sb-hide" title="Delete chat">✕</button>`;
+    d.querySelector('.shi-title').textContent=c.title||'New Chat';
+    d.querySelector('.shi-main').onclick=()=>loadConversation(c.id);
+    d.querySelector('.shi-del').onclick=e=>{e.stopPropagation();deleteConversation(c.id);};
+    box.appendChild(d);
+  });
+}
+function rebuildChatUI(){
+  chatMsgs.innerHTML='';
+  state.chat.forEach(m=>{
+    if(m.role==='user'){addUserBubble(m.content);}
+    else if(m.role==='assistant'){
+      const mm=MODES[m.mode]?m.mode:state.mode;
+      if(MODES[mm]){
+        const wrap=document.createElement('div');wrap.className='msg ai';
+        const card=aiCardEl(mm);wrap.appendChild(card);
+        card.querySelector('.body').textContent=m.content;
+        addPreferBtn(card,mm);
+        chatMsgs.appendChild(wrap);
+      }
+    }
+  });
+  scrollChat();
+}
+function loadConversation(id){
+  const arr=getConversations();const conv=arr.find(c=>c.id===id);if(!conv)return;
+  if(conv.kind==='minds'){
+    state.minds={active:conv.title,profile:conv.profile||{name:conv.title},history:(conv.messages||[]).slice(),convId:conv.id};
+    renderMindStage(state.minds.profile);
+    const box=document.getElementById('mindMsgs');if(box)box.innerHTML='';
+    state.minds.history.forEach(m=>{
+      if(m.role==='user')addMindMsg('user',m.content);
+      else{const el=addMindMsg('ai','');el.querySelector('.body').textContent=m.content;}
+    });
+    showPane('minds');
+  }else{
+    state.activeConvId=id;state.chat=(conv.messages||[]).slice();state.mode=conv.mode||state.mode;
+    setChatMode(state.mode);
+    rebuildChatUI();
+    showPane('chat');
+  }
+  document.querySelector('.stage').scrollTop=0;
+  renderSidebarHistory();
+}
+function startNewChat(nav){
+  state.chat=[];state.activeConvId=null;chatMsgs.innerHTML='';
+  renderSidebarHistory();
+  if(nav!==false){setChatMode(state.mode||'logical');showPane('chat');}
+}
+document.getElementById('newChatBtn').onclick=()=>startNewChat(true);
+document.getElementById('sidebarCollapseBtn').onclick=()=>{
+  const sb=document.getElementById('sidebar');
+  sb.classList.toggle('collapsed');
+  document.getElementById('sidebarCollapseBtn').textContent=sb.classList.contains('collapsed')?'»':'«';
+};
+document.getElementById('sidebarToggle').onclick=()=>{
+  document.getElementById('sidebar').classList.toggle('open');
+  document.getElementById('sidebarOverlay').classList.toggle('active');
+};
+document.getElementById('sidebarOverlay').onclick=()=>{
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('sidebarOverlay').classList.remove('active');
+};
 
 /* ============================================================
    KNOW YOUR MIND
@@ -908,7 +1162,7 @@ function renderKnowResult(r){
 const mindsWrap=document.getElementById('mindsWrap');
 const MIND_SUGGEST=['Nikola Tesla','Albert Einstein','Leonardo da Vinci','APJ Abdul Kalam','Marie Curie','Alan Turing','Socrates','Ada Lovelace'];
 function renderMindsIntro(){
-  state.minds={active:null,profile:null,history:[]};
+  state.minds={active:null,profile:null,history:[],convId:null};
   mindsWrap.innerHTML=`<div class="center-hero">
       <div class="eyebrow">Historical Dialogue</div>
       <h2 class="logo-word">Explore Great Minds</h2>
@@ -934,8 +1188,9 @@ async function summonMind(name){
   try{
     const raw=await aiComplete([{role:'system',content:sys},{role:'user',content:'Analyze: '+name}],{temperature:0.7});
     const p=extractJSON(raw);
-    state.minds={active:p.name||name,profile:p,history:[]};
+    state.minds={active:p.name||name,profile:p,history:[],convId:null};
     renderMindStage(p);
+    persistMindsConversation();
   }catch(err){
     mindsWrap.innerHTML=`<div class="persona-profile glass" style="text-align:center">⚠ ${err.message}<br><br><button class="btn" id="backMinds">Back</button></div>`;
     document.getElementById('backMinds').onclick=renderMindsIntro;
@@ -994,6 +1249,7 @@ async function sendMind(){
     if(!acc)body.textContent='(silence)';
     state.minds.history.push({role:'assistant',content:acc});
   }catch(err){th.remove();addMindMsg('ai','⚠ '+err.message);}
+  persistMindsConversation();
 }
 
 /* ============================================================
@@ -1015,18 +1271,60 @@ document.getElementById('navHome').onclick=()=>showPane('home');
    PROFILE
 ============================================================ */
 document.getElementById('openProfile').onclick=()=>{
-  const u=state.user;const b=getBalance();const total=b.logical+b.intuitive+b.duality||1;
+  const u=state.user;
   const mind=LS.get('axon_mind_'+u.username,null);
   document.getElementById('profileBody').innerHTML=`
     <div class="prof-row"><span class="k">Full Name</span><span>${escapeHtml(u.fullName||'—')}</span></div>
     <div class="prof-row"><span class="k">Username</span><span>${escapeHtml(u.username)}</span></div>
-    <div class="prof-row"><span class="k">Preferred Mode</span><span>${escapeHtml(u.preferredMode||state.mode)}</span></div>
-    <div class="prof-row"><span class="k">Balance</span><span>L ${Math.round(b.logical/total*100)}% · I ${Math.round(b.intuitive/total*100)}% · D ${Math.round(b.duality/total*100)}%</span></div>
-    <div class="prof-row"><span class="k">Last Mind Scan</span><span>${mind?`${mind.dominant} (${mind.logical}/${mind.creative})`:'Not yet run'}</span></div>`;
+    <div class="prof-row"><span class="k">Preferred Mode</span><span>${escapeHtml((u.preferredMode||state.mode||'').toUpperCase())}</span></div>
+    <div class="prof-row"><span class="k">Mind Type</span><span>${mind?escapeHtml(mind.dominant):'Not yet run'}</span></div>`;
+  refreshAvatarUI();
   document.getElementById('profileOverlay').classList.add('active');
 };
 document.getElementById('closeProfile').onclick=()=>document.getElementById('profileOverlay').classList.remove('active');
 document.getElementById('profileOverlay').onclick=e=>{if(e.target.id==='profileOverlay')e.currentTarget.classList.remove('active');};
+
+/* ============================================================
+   PROFILE PICTURE
+============================================================ */
+function refreshAvatarUI(){
+  const has=!!(state.user && state.user.avatar);
+  const src=has?state.user.avatar:'';
+  const thumb=document.getElementById('profileAvatarThumb'),svg=document.getElementById('profileIconSvg');
+  if(thumb&&svg){thumb.style.display=has?'block':'none';svg.style.display=has?'none':'block';if(has)thumb.src=src;}
+  const simg=document.getElementById('sbAvatarImg'),ssvg=document.getElementById('sbAvatarSvg');
+  if(simg&&ssvg){simg.style.display=has?'block':'none';ssvg.style.display=has?'none':'block';if(has)simg.src=src;}
+  const prev=document.getElementById('avatarPreview'),ph=document.getElementById('avatarPlaceholder');
+  if(prev&&ph){prev.style.display=has?'block':'none';ph.style.display=has?'none':'block';if(has)prev.src=src;}
+}
+document.getElementById('avatarBtn').onclick=()=>document.getElementById('avatarInput').click();
+document.getElementById('avatarInput').addEventListener('change',e=>{
+  const file=e.target.files[0];if(!file||!state.user)return;
+  const reader=new FileReader();
+  reader.onload=ev=>{
+    const img=new Image();
+    img.onload=()=>{
+      const size=200;
+      const canvas=document.createElement('canvas');canvas.width=size;canvas.height=size;
+      const ctx=canvas.getContext('2d');
+      const scale=Math.max(size/img.width,size/img.height);
+      const w=img.width*scale,h=img.height*scale;
+      ctx.drawImage(img,(size-w)/2,(size-h)/2,w,h);
+      state.user.avatar=canvas.toDataURL('image/jpeg',0.85);
+      saveUser(state.user);
+      refreshAvatarUI();
+    };
+    img.src=ev.target.result;
+  };
+  reader.readAsDataURL(file);
+  e.target.value='';
+});
+document.getElementById('avatarRemoveBtn').onclick=()=>{
+  if(!state.user)return;
+  delete state.user.avatar;
+  saveUser(state.user);
+  refreshAvatarUI();
+};
 document.getElementById('doLogout').onclick=()=>{
   localStorage.removeItem(CUR_KEY);state.user=null;state.chat=[];
   document.getElementById('profileOverlay').classList.remove('active');
@@ -1092,11 +1390,16 @@ function runLoginAnim(u){
 }
 function enterApp(u){
   state.user=u;state.mode=u.preferredMode||'logical';
-  state.chat=LS.get(chatKey(),[]);
+  state.chat=[];state.activeConvId=null;
+  state.minds={active:null,profile:null,history:[],convId:null};
   showView('app');renderBalance();
   setChatMode(state.mode);
-  // rebuild chat history visually (last few)
   chatMsgs.innerHTML='';
+  const nm=document.getElementById('sbHeadName'),un=document.getElementById('sbHeadUser');
+  if(nm)nm.textContent=u.fullName||u.username;
+  if(un)un.textContent='@'+u.username;
+  refreshAvatarUI();
+  renderSidebarHistory();
   showPane('home');
 }
 
