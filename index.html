@@ -129,7 +129,7 @@ nav{display:flex;align-items:center;gap:20px;padding:14px 24px;z-index:20;
 /* ---------- SIDEBAR ---------- */
 #sidebar{width:280px;flex-shrink:0;height:100%;border-right:1px solid var(--glass-brd);
   background:rgba(10,10,10,.55);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
-  overflow:hidden;transition:width .3s cubic-bezier(.2,.8,.2,1);position:relative;z-index:25}
+  overflow:hidden;transition:width .3s cubic-bezier(.2,.8,.2,1),transform .32s cubic-bezier(.2,.8,.2,1);position:relative;z-index:25}
 #sidebar.collapsed{width:76px}
 .sb-inner{width:280px;height:100%;display:flex;flex-direction:column;padding:16px 14px 14px;gap:16px;overflow-y:auto;overflow-x:hidden;transition:width .3s cubic-bezier(.2,.8,.2,1)}
 #sidebar.collapsed .sb-inner{width:76px;padding-left:10px;padding-right:10px}
@@ -427,7 +427,7 @@ nav{display:flex;align-items:center;gap:20px;padding:14px 24px;z-index:20;
   <aside id="sidebar">
     <div class="sb-inner">
       <div class="sb-head">
-        <div class="sb-avatar" id="sbAvatarWrap">
+        <div class="sb-avatar sb-hide" id="sbAvatarWrap">
           <svg id="sbAvatarSvg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-6 8-6s8 2 8 6"/></svg>
           <img id="sbAvatarImg" style="display:none" alt="">
         </div>
@@ -766,6 +766,11 @@ function extractJSON(text){
   throw new Error('Could not parse AI response as JSON.');
 }
 function noSettingsMsg(){return 'AXON needs an AI connection first. Open Settings (⚙) and add an API endpoint, key, and model.';}
+function toApiMessages(arr){
+  // Providers reject unknown message properties — strip internal fields (ts, mode, etc.)
+  // before anything from state.chat / state.minds.history is sent over the wire.
+  return arr.map(m=>({role:m.role,content:m.content}));
+}
 
 /* ============================================================
    BALANCE METER
@@ -882,7 +887,7 @@ async function sendChat(){
       const card=aiCardEl(m);wrap.appendChild(card);
       const body=card.querySelector('.body');body.textContent='…';let acc='';
       try{
-        const msgs=[{role:'system',content:MODES[m].prompt}].concat(state.chat.slice(-8));
+        const msgs=[{role:'system',content:MODES[m].prompt}].concat(toApiMessages(state.chat.slice(-8)));
         await aiComplete(msgs,{stream:true,onToken:t=>{acc+=t;body.textContent=acc;scrollChat();}});
         if(!acc)body.textContent='(no response)';
       }catch(err){body.textContent='⚠ '+err.message;}
@@ -895,7 +900,7 @@ async function sendChat(){
     const card=aiCardEl(m);wrap.appendChild(card);
     const body=card.querySelector('.body');let acc='';
     try{
-      const msgs=[{role:'system',content:MODES[m].prompt}].concat(state.chat.slice(-10));
+      const msgs=[{role:'system',content:MODES[m].prompt}].concat(toApiMessages(state.chat.slice(-10)));
       th.remove();chatMsgs.appendChild(wrap);
       await aiComplete(msgs,{stream:true,onToken:t=>{acc+=t;body.textContent=acc;scrollChat();}});
       if(!acc)body.textContent='(no response)';
@@ -1004,6 +1009,7 @@ function rebuildChatUI(){
 function loadConversation(id){
   const arr=getConversations();const conv=arr.find(c=>c.id===id);if(!conv)return;
   if(conv.kind==='minds'){
+    state.activeConvId=null;
     state.minds={active:conv.title,profile:conv.profile||{name:conv.title},history:(conv.messages||[]).slice(),convId:conv.id};
     renderMindStage(state.minds.profile);
     const box=document.getElementById('mindMsgs');if(box)box.innerHTML='';
@@ -1013,6 +1019,7 @@ function loadConversation(id){
     });
     showPane('minds');
   }else{
+    state.minds.convId=null;
     state.activeConvId=id;state.chat=(conv.messages||[]).slice();state.mode=conv.mode||state.mode;
     setChatMode(state.mode);
     rebuildChatUI();
@@ -1022,8 +1029,20 @@ function loadConversation(id){
   renderSidebarHistory();
 }
 function startNewChat(nav){
-  state.chat=[];state.activeConvId=null;chatMsgs.innerHTML='';
-  renderSidebarHistory();
+  // don't stack duplicate empty entries if we're already sitting on a fresh, unsent chat
+  if(state.chat.length===0 && state.activeConvId){
+    const existing=getConversations().find(c=>c.id===state.activeConvId);
+    if(existing && existing.kind==='chat' && (!existing.messages || existing.messages.length===0)){
+      if(nav!==false){setChatMode(state.mode||'logical');showPane('chat');}
+      return;
+    }
+  }
+  state.chat=[];
+  state.minds.convId=null;
+  chatMsgs.innerHTML='';
+  const id='c'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+  state.activeConvId=id;
+  upsertConversation({id,kind:'chat',title:'Untitled Chat',mode:state.mode,messages:[]});
   if(nav!==false){setChatMode(state.mode||'logical');showPane('chat');}
 }
 document.getElementById('newChatBtn').onclick=()=>startNewChat(true);
@@ -1074,9 +1093,9 @@ async function startKnow(){
     <span class="tdot"></span><svg class="eeg" viewBox="0 0 70 26"><polyline points="0,13 8,13 12,4 16,22 20,13 30,13 34,8 38,18 42,13 70,13"/></svg>
     <span>Generating a unique cognitive profile…</span></div></div>`;
   const seed=Math.random().toString(36).slice(2);
-  const sys="You are AXON's cognitive assessment engine. Generate exactly 10 psychologically insightful multiple-choice questions that reveal how a person thinks. Cover a spread of these categories: Logic, Creativity, Ethics, Leadership, Curiosity, Observation, Problem Solving, Adaptability, Innovation, Philosophy, Imagination, Future Thinking, Human Behavior, Risk Taking, Decision Making. Questions must be intriguing scenarios or thought experiments — NOT generic personality-test items (never ask about favorite color, introversion, or happiness). Each question has exactly 4 distinct options. Respond with ONLY a JSON array, no prose, no markdown fences. Each element: {\"question\":string,\"category\":string,\"options\":[4 strings]}.";
+  const sys="You are AXON's cognitive assessment engine. Generate exactly 10 short, punchy multiple-choice questions that reveal how a person thinks. Cover a spread of these categories: Logic, Creativity, Ethics, Leadership, Curiosity, Observation, Problem Solving, Adaptability, Innovation, Philosophy, Imagination, Future Thinking, Human Behavior, Risk Taking, Decision Making. STRICT RULES: each question must be under 12 words and express exactly ONE idea, phrased like a quick conversational prompt (e.g. \"Logic or intuition?\", \"Plan or improvise?\", \"Solve problems for fun?\") — NOT a long scenario, story, or hypothetical setup. Avoid generic personality-test items (never ask about favorite color, introversion, or general happiness). Each option must be 1-4 words. Use exactly 4 options per question unless a two-way either/or genuinely fits better, in which case 2-3 options are fine. Respond with ONLY a JSON array, no prose, no markdown fences. Each element: {\"question\":string,\"category\":string,\"options\":[2-4 short strings]}.";
   try{
-    const raw=await aiComplete([{role:'system',content:sys},{role:'user',content:'Generate a fresh set now. Variation seed: '+seed+'. Make them different from any typical set.'}],{temperature:1.0});
+    const raw=await aiComplete([{role:'system',content:sys},{role:'user',content:'Generate a fresh set now. Variation seed: '+seed+'. Keep every question short and conversational — no long setups.'}],{temperature:1.0});
     let qs=extractJSON(raw);
     if(!Array.isArray(qs))throw new Error('bad format');
     qs=qs.filter(q=>q&&q.question&&Array.isArray(q.options)&&q.options.length>=2).slice(0,10);
@@ -1142,8 +1161,13 @@ function renderKnowResult(r){
     <div class="insight">"${escapeHtml(r.insight||'You navigate the world with a mind uniquely your own.')}"</div>
     <div style="text-align:center;margin-top:26px"><button class="btn primary" id="rescan">Run a New Scan</button></div>
   </div>`;
-  knowWrap.querySelectorAll('.stat .track i').forEach(i=>{i.style.background='linear-gradient(90deg,#00BFFF,#FFD700,#8A2BE2)';});
-  requestAnimationFrame(()=>{knowWrap.querySelectorAll('.stat .track i').forEach(i=>{i.style.width=i.dataset.w+'%';});});
+  knowWrap.querySelectorAll('.stat .track i').forEach(i=>{
+    i.style.background='linear-gradient(90deg,#00BFFF,#FFD700,#8A2BE2)';
+    i.style.width='0%';
+  });
+  setTimeout(()=>{
+    knowWrap.querySelectorAll('.stat .track i').forEach(i=>{i.style.width=i.dataset.w+'%';});
+  },30);
   document.getElementById('rescan').onclick=renderKnowIntro;
 }
 
@@ -1179,6 +1203,7 @@ async function summonMind(name){
   try{
     const raw=await aiComplete([{role:'system',content:sys},{role:'user',content:'Analyze: '+name}],{temperature:0.7});
     const p=extractJSON(raw);
+    state.activeConvId=null;
     state.minds={active:p.name||name,profile:p,history:[],convId:null};
     renderMindStage(p);
     persistMindsConversation();
