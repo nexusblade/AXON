@@ -234,13 +234,38 @@ nav{display:flex;align-items:center;gap:20px;padding:14px 24px;z-index:20;
 .msg.user .bubble{background:linear-gradient(120deg,rgba(255,255,255,.1),rgba(255,255,255,.05));
   border:1px solid var(--glass-brd);border-radius:18px 18px 6px 18px;padding:14px 18px;line-height:1.6}
 .msg.ai{align-self:flex-start;max-width:88%}
-.card{padding:18px 20px;border-radius:6px 18px 18px 18px;line-height:1.65;white-space:pre-wrap;
+.card{padding:18px 20px;border-radius:6px 18px 18px 18px;line-height:1.65;
   border:1px solid var(--glass-brd);background:var(--glass);backdrop-filter:blur(18px)}
 .card .who{font-family:var(--mono);font-size:10px;letter-spacing:.2em;text-transform:uppercase;
   margin-bottom:9px;display:flex;align-items:center;gap:7px}
 .card.logical{border-top:2px solid var(--logic)}.card.logical .who{color:var(--logic)}
 .card.intuitive{border-top:2px solid var(--intu)}.card.intuitive .who{color:#c79bff}
 .card.duality{border-top:2px solid var(--dual)}.card.duality .who{color:var(--dual)}
+/* rendered Markdown inside AI response bodies */
+.body p{margin:0 0 10px}
+.body p:last-child{margin-bottom:0}
+.body strong{color:var(--white);font-weight:800}
+.body em{color:var(--white)}
+.body ul,.body ol{margin:0 0 12px 22px;padding:0}
+.body ul{list-style:disc}
+.body ol{list-style:decimal}
+.body li{margin-bottom:6px;line-height:1.55}
+.body li:last-child{margin-bottom:0}
+.body h1,.body h2,.body h3,.body h4{line-height:1.35;margin:16px 0 8px;letter-spacing:.02em}
+.body h1:first-child,.body h2:first-child,.body h3:first-child,.body h4:first-child{margin-top:0}
+.body h1{font-size:19px}.body h2{font-size:17px}.body h3{font-size:15px}.body h4{font-size:14px;color:var(--gray);text-transform:uppercase;letter-spacing:.08em}
+.body hr{border:none;border-top:1px solid var(--glass-brd);margin:14px 0}
+.body blockquote{margin:0 0 12px;padding:4px 14px;border-left:3px solid var(--dual);color:var(--gray);font-style:italic}
+.body a{color:var(--logic);text-decoration:underline;text-underline-offset:2px}
+.body .md-inline-code{font-family:var(--mono);font-size:.9em;background:rgba(255,255,255,.08);
+  padding:2px 6px;border-radius:5px;color:#ffd9a0}
+.body .md-code{margin:0 0 12px;padding:14px 16px;border-radius:12px;background:rgba(0,0,0,.35);
+  border:1px solid var(--glass-brd);overflow-x:auto}
+.body .md-code code{font-family:var(--mono);font-size:12.5px;line-height:1.55;color:#d6ecff;white-space:pre}
+.md-table-wrap{overflow-x:auto;margin:0 0 12px}
+.body .md-table{border-collapse:collapse;width:100%;font-size:13px}
+.body .md-table th,.body .md-table td{border:1px solid var(--glass-brd);padding:8px 12px;text-align:left}
+.body .md-table th{background:rgba(255,255,255,.05);font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--gray)}
 .prefer{margin-top:14px;font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;
   background:rgba(255,255,255,.05);border:1px solid var(--glass-brd);color:var(--gray);
   padding:8px 14px;border-radius:10px;cursor:pointer;transition:.2s}
@@ -552,10 +577,13 @@ nav{display:flex;align-items:center;gap:20px;padding:14px 24px;z-index:20;
   <div class="panel glass" style="border-radius:0">
     <button class="icon-btn close" id="closeSettings">✕</button>
     <h3>Settings</h3>
-    <p class="hint">Pick your provider and paste its API key. AXON selects a suitable model automatically.</p>
+    <p class="hint">Pick a provider (or Auto to detect it from your key), then tweak the endpoint or model if you need to.</p>
     <div class="field"><label>Provider</label>
       <div class="preset-row" id="presets"></div></div>
+    <div class="field"><label>Endpoint URL</label><input id="setEndpoint" placeholder="https://api.example.com/v1/chat/completions"></div>
+    <div class="field"><label>Model</label><input id="setModel" placeholder="model-name"></div>
     <div class="field"><label>API Key</label><input id="setKey" type="password" placeholder="Paste your API key"></div>
+    <div class="hint" id="providerHint" style="margin-top:-10px"></div>
     <button class="btn primary" id="saveSettings" style="width:100%">Save Settings</button>
     <div class="saved" id="setSaved"></div>
   </div>
@@ -670,48 +698,86 @@ function showPane(name){
 /* ============================================================
    SETTINGS
 ============================================================ */
-function getSettings(){return LS.get(SET_KEY,{endpoint:'',key:'',model:''});}
+function getSettings(){return LS.get(SET_KEY,{provider:'auto',endpoint:'',key:'',model:''});}
+
+// id, display name, default endpoint, default model, auth style, key-hint, prefixes used for Auto-detection
 const PRESETS=[
-  ['OpenAI','https://api.openai.com/v1/chat/completions','gpt-4o-mini'],
-  ['OpenRouter','https://openrouter.ai/api/v1/chat/completions','openai/gpt-4o-mini'],
-  ['Groq','https://api.groq.com/openai/v1/chat/completions','llama-3.3-70b-versatile'],
-  ['DeepSeek','https://api.deepseek.com/v1/chat/completions','deepseek-chat'],
-  ['Together','https://api.together.xyz/v1/chat/completions','meta-llama/Llama-3.3-70B-Instruct-Turbo'],
-  ['Mistral','https://api.mistral.ai/v1/chat/completions','mistral-large-latest'],
+  {id:'auto',       name:'Auto',       endpoint:'',                                                                   model:'',                          auth:'bearer', hint:'any provider key — AXON will guess',              prefixes:[]},
+  {id:'openai',     name:'OpenAI',     endpoint:'https://api.openai.com/v1/chat/completions',                        model:'gpt-4o-mini',               auth:'bearer', hint:'sk-…',                                             prefixes:[]},
+  {id:'gemini',     name:'Gemini',     endpoint:'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions', model:'gemini-2.5-flash',   auth:'bearer', hint:'AIzaSy…',                                          prefixes:['AIzaSy']},
+  {id:'anthropic',  name:'Anthropic',  endpoint:'https://api.anthropic.com/v1/messages',                             model:'claude-sonnet-5',           auth:'anthropic', hint:'sk-ant-…',                                      prefixes:['sk-ant-']},
+  {id:'groq',       name:'Groq',       endpoint:'https://api.groq.com/openai/v1/chat/completions',                   model:'llama-3.3-70b-versatile',   auth:'bearer', hint:'gsk_…',                                            prefixes:['gsk_']},
+  {id:'openrouter', name:'OpenRouter', endpoint:'https://openrouter.ai/api/v1/chat/completions',                     model:'openai/gpt-4o-mini',        auth:'bearer', hint:'sk-or-…',                                          prefixes:['sk-or-']},
+  {id:'deepseek',   name:'DeepSeek',   endpoint:'https://api.deepseek.com/v1/chat/completions',                      model:'deepseek-chat',             auth:'bearer', hint:'sk-…',                                             prefixes:[]},
+  {id:'together',   name:'Together',   endpoint:'https://api.together.xyz/v1/chat/completions',                     model:'meta-llama/Llama-3.3-70B-Instruct-Turbo', auth:'bearer', hint:'your Together key',                    prefixes:[]},
+  {id:'mistral',    name:'Mistral',    endpoint:'https://api.mistral.ai/v1/chat/completions',                       model:'mistral-large-latest',      auth:'bearer', hint:'your Mistral key',                                prefixes:[]},
+  {id:'xai',        name:'xAI',        endpoint:'https://api.x.ai/v1/chat/completions',                              model:'grok-4.5',                  auth:'bearer', hint:'xai-…',                                            prefixes:['xai-']},
+  {id:'cohere',     name:'Cohere',     endpoint:'https://api.cohere.ai/compatibility/v1/chat/completions',           model:'command-a-03-2025',         auth:'bearer', hint:'your Cohere key',                                 prefixes:[]},
+  {id:'qwen',       name:'Qwen',       endpoint:'https://dashscope-intl.aliyuncs.com/compatible-mode/v1/chat/completions', model:'qwen-plus',           auth:'bearer', hint:'sk-…',                                             prefixes:[]},
+  {id:'perplexity', name:'Perplexity', endpoint:'https://api.perplexity.ai/chat/completions',                        model:'sonar',                     auth:'bearer', hint:'pplx-…',                                           prefixes:['pplx-']},
+  {id:'fireworks',  name:'Fireworks',  endpoint:'https://api.fireworks.ai/inference/v1/chat/completions',            model:'accounts/fireworks/models/llama-v3p3-70b-instruct', auth:'bearer', hint:'fw_…',                       prefixes:['fw_','fw-']},
+  {id:'azure',      name:'Azure',      endpoint:'https://YOUR-RESOURCE.openai.azure.com/openai/deployments/YOUR-DEPLOYMENT/chat/completions?api-version=2024-08-01-preview', model:'', auth:'api-key', hint:'your Azure OpenAI key', prefixes:[]},
 ];
-let selectedEndpoint='', selectedModel='';
+function getPreset(id){return PRESETS.find(p=>p.id===id)||PRESETS[1];}
+function detectProviderFromKey(key){
+  key=(key||'').trim();
+  for(const p of PRESETS){ for(const pre of p.prefixes){ if(key.startsWith(pre)) return p.id; } }
+  return null; // ambiguous (many providers share generic "sk-" style keys) — caller decides fallback
+}
+// resolves what to actually send: explicit picks win, "auto" is detected fresh from the key every call
+function resolveProvider(s){
+  let id=s.provider||'openai';
+  if(id==='auto'){ id=detectProviderFromKey(s.key)||'openai'; }
+  const preset=getPreset(id);
+  const endpoint=(s.provider!=='auto' && s.endpoint) ? s.endpoint : preset.endpoint;
+  const model=(s.provider!=='auto' && s.model) ? s.model : preset.model;
+  return {endpoint,model,auth:preset.auth,id};
+}
+let selectedProviderId='auto';
 function initSettingsPanel(){
   const s=getSettings();
-  selectedEndpoint = s.endpoint || PRESETS[0][1];
-  // adopt the stored model, else the default model of the matched provider
-  const match = PRESETS.find(p=>p[1]===selectedEndpoint);
-  selectedModel = match ? match[2] : (s.model || PRESETS[0][2]);
+  selectedProviderId = s.provider || 'auto';
+  document.getElementById('setEndpoint').value = s.endpoint||'';
+  document.getElementById('setModel').value = s.model||'';
   setKey.value=s.key;
   renderPresets();
 }
 function renderPresets(){
   const pr=document.getElementById('presets'); pr.innerHTML='';
-  const hints={
-    'https://api.openai.com/v1/chat/completions':'sk-…',
-    'https://openrouter.ai/api/v1/chat/completions':'sk-or-…',
-    'https://api.groq.com/openai/v1/chat/completions':'gsk_…',
-    'https://api.deepseek.com/v1/chat/completions':'sk-…',
-    'https://api.together.xyz/v1/chat/completions':'your Together key',
-    'https://api.mistral.ai/v1/chat/completions':'your Mistral key',
-  };
-  setKey.placeholder='Paste your API key ('+(hints[selectedEndpoint]||'API key')+')';
-  PRESETS.forEach(([name,ep,model])=>{
-    const b=document.createElement('button');b.textContent=name;
-    if(ep===selectedEndpoint)b.classList.add('sel');
+  const preset=getPreset(selectedProviderId);
+  const epInput=document.getElementById('setEndpoint'), modelInput=document.getElementById('setModel');
+  const hintBox=document.getElementById('providerHint');
+  setKey.placeholder='Paste your API key ('+preset.hint+')';
+  if(selectedProviderId==='auto'){
+    epInput.disabled=true; modelInput.disabled=true;
+    epInput.value=''; epInput.placeholder='Auto-detected from your key';
+    modelInput.value=''; modelInput.placeholder='Auto-detected from your key';
+    hintBox.textContent='Auto reliably recognizes Anthropic, Gemini, Groq, OpenRouter, xAI, Perplexity and Fireworks keys by their prefix. Other keys (many look like generic "sk-…") fall back to OpenAI-compatible — pick the provider manually for those if it does not match.';
+  }else{
+    epInput.disabled=false; modelInput.disabled=false;
+    epInput.placeholder='https://api.example.com/v1/chat/completions';
+    modelInput.placeholder='model-name';
+    if(!epInput.value || PRESETS.some(p=>p.endpoint && p.endpoint===epInput.value)) epInput.value=preset.endpoint;
+    if(!modelInput.value || PRESETS.some(p=>p.model && p.model===modelInput.value)) modelInput.value=preset.model;
+    hintBox.textContent = preset.id==='azure'
+      ? 'Replace YOUR-RESOURCE and YOUR-DEPLOYMENT in the endpoint above with your actual Azure resource and deployment names.'
+      : (preset.id==='anthropic' ? 'Uses Anthropic’s native Messages API directly from your browser.' : '');
+  }
+  PRESETS.forEach(preset=>{
+    const b=document.createElement('button');b.textContent=preset.name;
+    if(preset.id===selectedProviderId)b.classList.add('sel');
     b.onclick=()=>{
-      selectedEndpoint=ep; selectedModel=model;  // switching provider adopts its default model
+      selectedProviderId=preset.id;
+      if(preset.id!=='auto'){ epInput.value=preset.endpoint; modelInput.value=preset.model; }
       renderPresets();
     };
     pr.appendChild(b);
   });
 }
 document.getElementById('saveSettings').onclick=()=>{
-  LS.set(SET_KEY,{endpoint:selectedEndpoint,key:setKey.value.trim(),model:selectedModel});
+  const endpoint=document.getElementById('setEndpoint').value.trim();
+  const model=document.getElementById('setModel').value.trim();
+  LS.set(SET_KEY,{provider:selectedProviderId,endpoint:selectedProviderId==='auto'?'':endpoint,model:selectedProviderId==='auto'?'':model,key:setKey.value.trim()});
   const el=document.getElementById('setSaved');el.textContent='✓ Saved';
   setTimeout(()=>{document.getElementById('settingsOverlay').classList.remove('active');el.textContent='';},750);
 };
@@ -721,18 +787,21 @@ document.getElementById('closeSettings').onclick=()=>document.getElementById('se
 document.getElementById('settingsOverlay').onclick=e=>{if(e.target.id==='settingsOverlay')e.currentTarget.classList.remove('active');};
 
 /* ============================================================
-   AI CALL  (OpenAI-compatible, streaming + JSON)
+   AI CALL  (OpenAI-compatible providers + native Anthropic + Azure)
 ============================================================ */
 async function aiComplete(messages,{stream=false,onToken=null,temperature=0.85}={}){
   const s=getSettings();
-  if(!s.endpoint||!s.key) throw new Error('NO_SETTINGS');
-  const preset=PRESETS.find(p=>p[1]===s.endpoint);        // model is fixed per provider
-  const model=preset?preset[2]:s.model;                    // ignore any stale stored model
-  const res=await fetch(s.endpoint,{
-    method:'POST',
-    headers:{'Content-Type':'application/json','Authorization':'Bearer '+s.key},
-    body:JSON.stringify({model,messages,stream,temperature})
-  });
+  if(!s.key) throw new Error('NO_SETTINGS');
+  const {endpoint,model,auth}=resolveProvider(s);
+  if(!endpoint) throw new Error('NO_SETTINGS');
+
+  if(auth==='anthropic') return anthropicComplete(endpoint,s.key,model,messages,{stream,onToken,temperature});
+
+  const headers={'Content-Type':'application/json'};
+  if(auth==='api-key') headers['api-key']=s.key; else headers['Authorization']='Bearer '+s.key;
+  const body = auth==='api-key' ? {messages,stream,temperature} : {model,messages,stream,temperature};
+
+  const res=await fetch(endpoint,{method:'POST',headers,body:JSON.stringify(body)});
   if(!res.ok){
     let t='';try{t=await res.text();}catch(e){}
     if(res.status===401||res.status===403)
@@ -758,6 +827,47 @@ async function aiComplete(messages,{stream=false,onToken=null,temperature=0.85}=
   }
   return full;
 }
+// Anthropic's native Messages API: different auth headers, system is a top-level field,
+// and streaming sends content_block_delta events instead of OpenAI-style choices[].delta.
+async function anthropicComplete(endpoint,key,model,messages,{stream,onToken,temperature}){
+  let system=''; const msgs=[];
+  messages.forEach(m=>{ if(m.role==='system') system+=(system?'\n':'')+m.content; else msgs.push({role:m.role,content:m.content}); });
+  const headers={
+    'Content-Type':'application/json',
+    'x-api-key':key,
+    'anthropic-version':'2023-06-01',
+    'anthropic-dangerous-direct-browser-access':'true'
+  };
+  const body={model,max_tokens:1536,messages:msgs,stream,temperature};
+  if(system) body.system=system;
+  const res=await fetch(endpoint,{method:'POST',headers,body:JSON.stringify(body)});
+  if(!res.ok){
+    let t='';try{t=await res.text();}catch(e){}
+    if(res.status===401||res.status===403)
+      throw new Error('Your Anthropic API key was rejected. Open Settings ⚙ and double-check it.');
+    if(res.status===429)
+      throw new Error('Rate limited or out of credits (429). Check your Anthropic account, then retry.');
+    if(res.status===404)
+      throw new Error('Model "'+model+'" was not found (404) at Anthropic. Try a different model in Settings ⚙.');
+    throw new Error('API '+res.status+' — '+t.slice(0,180));
+  }
+  if(!stream){const d=await res.json();return (d.content&&d.content[0]&&d.content[0].text)||'';}
+  const reader=res.body.getReader(),dec=new TextDecoder();let buf='',full='';
+  while(true){
+    const {done,value}=await reader.read(); if(done)break;
+    buf+=dec.decode(value,{stream:true});
+    const lines=buf.split('\n'); buf=lines.pop();
+    for(const line of lines){
+      const l=line.trim(); if(!l.startsWith('data:'))continue;
+      const p=l.slice(5).trim(); if(!p)continue;
+      try{
+        const j=JSON.parse(p);
+        if(j.type==='content_block_delta'&&j.delta&&j.delta.text){ full+=j.delta.text; if(onToken)onToken(j.delta.text); }
+      }catch(e){}
+    }
+  }
+  return full;
+}
 function extractJSON(text){
   let t=String(text).trim().replace(/^```(?:json)?/i,'').replace(/```$/,'').trim();
   try{return JSON.parse(t);}catch(e){}
@@ -765,7 +875,7 @@ function extractJSON(text){
   if(m){try{return JSON.parse(m[0]);}catch(e){}}
   throw new Error('Could not parse AI response as JSON.');
 }
-function noSettingsMsg(){return 'AXON needs an AI connection first. Open Settings (⚙) and add an API endpoint, key, and model.';}
+function noSettingsMsg(){return 'AXON needs an AI connection first. Open Settings (⚙) and add an API key.';}
 function toApiMessages(arr){
   // Providers reject unknown message properties — strip internal fields (ts, mode, etc.)
   // before anything from state.chat / state.minds.history is sent over the wire.
@@ -810,6 +920,7 @@ const MODES={
     prompt:"You are AXON operating in DUALITY VISION mode. Combine logic and intuition to provide responses that are analytical, creative, practical, and insightful."},
 };
 const TRINITY_DESC='Runs all three minds on the same question at once, side by side, so you can compare how logic, intuition, and balance each respond — then tap "I Prefer This Response" to shape your Balance Meter.';
+const FORMAT_GUIDE="Format your reply in clean Markdown so it renders well: short paragraphs, a numbered or bulleted list for multiple items/steps, and a Markdown table when comparing structured data side by side. Use **bold** sparingly, only for the few most important words — never bold whole sentences. Do not dump everything into one dense paragraph.";
 
 /* ============================================================
    CHAT
@@ -873,7 +984,7 @@ function addPreferBtn(container,mode){
 async function sendChat(){
   const input=document.getElementById('chatInput');
   const text=input.value.trim();if(!text)return;
-  if(!getSettings().endpoint){addUserBubble(text);const w=document.createElement('div');w.className='msg ai';w.innerHTML='<div class="card duality"><div class="body"></div></div>';w.querySelector('.body').textContent=noSettingsMsg();chatMsgs.appendChild(w);scrollChat();input.value='';return;}
+  if(!getSettings().key){addUserBubble(text);const w=document.createElement('div');w.className='msg ai';w.innerHTML='<div class="card duality"><div class="body"></div></div>';w.querySelector('.body').innerHTML=renderMarkdown(noSettingsMsg());chatMsgs.appendChild(w);scrollChat();input.value='';return;}
   input.value='';
   addUserBubble(text);
   state.chat.push({role:'user',content:text,ts:Date.now(),mode:state.mode});
@@ -885,12 +996,12 @@ async function sendChat(){
     const modes=['logical','intuitive','duality'];
     await Promise.all(modes.map(async m=>{
       const card=aiCardEl(m);wrap.appendChild(card);
-      const body=card.querySelector('.body');body.textContent='…';let acc='';
+      const body=card.querySelector('.body');body.innerHTML='…';let acc='';
       try{
-        const msgs=[{role:'system',content:MODES[m].prompt}].concat(toApiMessages(state.chat.slice(-8)));
-        await aiComplete(msgs,{stream:true,onToken:t=>{acc+=t;body.textContent=acc;scrollChat();}});
-        if(!acc)body.textContent='(no response)';
-      }catch(err){body.textContent='⚠ '+err.message;}
+        const msgs=[{role:'system',content:MODES[m].prompt+' '+FORMAT_GUIDE}].concat(toApiMessages(state.chat.slice(-8)));
+        await aiComplete(msgs,{stream:true,onToken:t=>{acc+=t;body.innerHTML=renderMarkdown(acc);scrollChat();}});
+        if(!acc)body.innerHTML='(no response)';
+      }catch(err){body.innerHTML=renderMarkdown('⚠ '+err.message);}
       addPreferBtn(card,m);
     }));
     scrollChat();
@@ -900,12 +1011,12 @@ async function sendChat(){
     const card=aiCardEl(m);wrap.appendChild(card);
     const body=card.querySelector('.body');let acc='';
     try{
-      const msgs=[{role:'system',content:MODES[m].prompt}].concat(toApiMessages(state.chat.slice(-10)));
+      const msgs=[{role:'system',content:MODES[m].prompt+' '+FORMAT_GUIDE}].concat(toApiMessages(state.chat.slice(-10)));
       th.remove();chatMsgs.appendChild(wrap);
-      await aiComplete(msgs,{stream:true,onToken:t=>{acc+=t;body.textContent=acc;scrollChat();}});
-      if(!acc)body.textContent='(no response)';
+      await aiComplete(msgs,{stream:true,onToken:t=>{acc+=t;body.innerHTML=renderMarkdown(acc);scrollChat();}});
+      if(!acc)body.innerHTML='(no response)';
       state.chat.push({role:'assistant',content:acc,ts:Date.now(),mode:m});
-    }catch(err){th.remove();chatMsgs.appendChild(wrap);body.textContent='⚠ '+err.message;}
+    }catch(err){th.remove();chatMsgs.appendChild(wrap);body.innerHTML=renderMarkdown('⚠ '+err.message);}
     addPreferBtn(card,m);
     scrollChat();
   }
@@ -998,7 +1109,7 @@ function rebuildChatUI(){
       if(MODES[mm]){
         const wrap=document.createElement('div');wrap.className='msg ai';
         const card=aiCardEl(mm);wrap.appendChild(card);
-        card.querySelector('.body').textContent=m.content;
+        card.querySelector('.body').innerHTML=renderMarkdown(m.content);
         addPreferBtn(card,mm);
         chatMsgs.appendChild(wrap);
       }
@@ -1015,7 +1126,7 @@ function loadConversation(id){
     const box=document.getElementById('mindMsgs');if(box)box.innerHTML='';
     state.minds.history.forEach(m=>{
       if(m.role==='user')addMindMsg('user',m.content);
-      else{const el=addMindMsg('ai','');el.querySelector('.body').textContent=m.content;}
+      else{const el=addMindMsg('ai','');el.querySelector('.body').innerHTML=renderMarkdown(m.content);}
     });
     showPane('minds');
   }else{
@@ -1087,7 +1198,7 @@ function renderKnowIntro(){
   document.getElementById('startKnow').onclick=startKnow;
 }
 async function startKnow(){
-  if(!getSettings().endpoint){knowWrap.innerHTML=`<div class="q-card glass" style="text-align:center">${noSettingsMsg()}</div>`;return;}
+  if(!getSettings().key){knowWrap.innerHTML=`<div class="q-card glass" style="text-align:center">${noSettingsMsg()}</div>`;return;}
   knowWrap.innerHTML=`<div class="q-card glass" style="text-align:center">
     <div class="thinking" style="justify-content:center;border:none;background:none">
     <span class="tdot"></span><svg class="eeg" viewBox="0 0 70 26"><polyline points="0,13 8,13 12,4 16,22 20,13 30,13 34,8 38,18 42,13 70,13"/></svg>
@@ -1132,9 +1243,9 @@ async function analyzeMind(){
     <div class="thinking" style="justify-content:center;border:none;background:none">
     <span class="tdot"></span><svg class="eeg" viewBox="0 0 70 26"><polyline points="0,13 8,13 12,4 16,22 20,13 30,13 34,8 38,18 42,13 70,13"/></svg>
     <span>Analyzing your cognitive signature…</span></div></div>`;
-  const sys="You are AXON's cognitive analysis engine. Given a person's answers to a thinking-style assessment, produce a nuanced psychological profile. Respond with ONLY JSON, no prose or fences: {\"logical\":int 0-100,\"creative\":int 0-100,\"curiosity\":int 0-100,\"leadership\":int 0-100,\"adaptability\":int 0-100,\"risk\":int 0-100,\"problemSolving\":int 0-100,\"dominant\":\"LOGICAL\"|\"INTUITIVE\"|\"BALANCED\",\"traits\":[4 short trait strings],\"insight\":\"one profound sentence about how this person thinks\"}. logical + creative should sum to roughly 100. Choose BALANCED only when they are within ~12 points of each other.";
+  const sys="You are AXON's cognitive analysis engine. Given a person's answers to a thinking-style assessment, produce a nuanced psychological profile. Respond with ONLY JSON, no prose or fences: {\"logical\":int 0-100,\"creative\":int 0-100,\"curiosity\":int 0-100,\"leadership\":int 0-100,\"adaptability\":int 0-100,\"risk\":int 0-100,\"problemSolving\":int 0-100,\"dominant\":\"LOGICAL\"|\"INTUITIVE\"|\"BALANCED\",\"traits\":[4 short trait strings],\"insight\":\"one short sentence about how THIS person thinks\"}. logical + creative should sum to roughly 100. Choose BALANCED only when they are within ~12 points of each other. STRICT RULES for the insight field: write it in plain, everyday words a 12-year-old would understand — no jargon, no fancy vocabulary. Never start with or reuse stock phrasing like \"This individual's thinking style is characterized by\", \"strong foundation\", or \"methodical yet innovative\" — vary the wording and sentence shape every single time. Ground it in something specific from their actual answers below rather than a generic template. Plain text only, no markdown, no asterisks.";
   try{
-    const raw=await aiComplete([{role:'system',content:sys},{role:'user',content:'Answers:\n'+JSON.stringify(state.know.answers,null,1)}],{temperature:0.7});
+    const raw=await aiComplete([{role:'system',content:sys},{role:'user',content:'Answers:\n'+JSON.stringify(state.know.answers,null,1)}],{temperature:1.0});
     const r=extractJSON(raw);
     LS.set('axon_mind_'+state.user.username,r);
     renderKnowResult(r);
@@ -1194,7 +1305,7 @@ function renderMindsIntro(){
 }
 async function summonMind(name){
   if(!name)return;
-  if(!getSettings().endpoint){mindsWrap.innerHTML=`<div class="persona-profile glass" style="text-align:center">${noSettingsMsg()}</div>`;return;}
+  if(!getSettings().key){mindsWrap.innerHTML=`<div class="persona-profile glass" style="text-align:center">${noSettingsMsg()}</div>`;return;}
   mindsWrap.innerHTML=`<div class="persona-profile glass" style="text-align:center">
     <div class="thinking" style="justify-content:center;border:none;background:none">
     <span class="tdot"></span><svg class="eeg" viewBox="0 0 70 26"><polyline points="0,13 8,13 12,4 16,22 20,13 30,13 34,8 38,18 42,13 70,13"/></svg>
@@ -1213,7 +1324,7 @@ async function summonMind(name){
   }
 }
 function personaSystem(p){
-  return `You ARE ${p.name}. Fully embody this historical personality: their personality (${(p.traits||[]).join(', ')}), speaking style (${(p.style||[]).join(', ')}), era (${p.era||''}), values, beliefs, worldview, and thinking patterns. Known for: ${(p.knownFor||[]).join(', ')}. Speak in first person as ${p.name}. Stay in character at all times, referencing your own era's knowledge and perspective. Keep responses vivid but reasonably concise. This is an AI interpretation for educational purposes.`;
+  return `You ARE ${p.name}. Fully embody this historical personality: their personality (${(p.traits||[]).join(', ')}), speaking style (${(p.style||[]).join(', ')}), era (${p.era||''}), values, beliefs, worldview, and thinking patterns. Known for: ${(p.knownFor||[]).join(', ')}. Speak in first person as ${p.name}. Stay in character at all times, referencing your own era's knowledge and perspective. Keep responses vivid but reasonably concise. If you're listing several examples or steps, feel free to use Markdown (a short list, occasional **bold**) as long as it still sounds like you speaking, not a report. This is an AI interpretation for educational purposes.`;
 }
 function renderMindStage(p){
   mindsWrap.innerHTML=`
@@ -1246,7 +1357,7 @@ function addMindMsg(role,text){
   }else{
     const d=document.createElement('div');d.className='msg ai';
     d.innerHTML=`<div class="card duality"><div class="who"><span style="width:8px;height:8px;border-radius:50%;background:var(--dual);display:inline-block"></span>${escapeHtml(state.minds.active)} <span style="color:var(--gray);letter-spacing:.1em">(AI Interpretation)</span></div><div class="body"></div></div>`;
-    d.querySelector('.body').textContent=text;box.appendChild(d);
+    d.querySelector('.body').innerHTML=renderMarkdown(text);box.appendChild(d);
   }
   scrollChat();return box.lastChild;
 }
@@ -1261,8 +1372,8 @@ async function sendMind(){
   try{
     const msgs=[{role:'system',content:personaSystem(state.minds.profile)}].concat(state.minds.history.slice(-10));
     th.remove();const el=addMindMsg('ai','');const body=el.querySelector('.body');let acc='';
-    await aiComplete(msgs,{stream:true,onToken:t=>{acc+=t;body.textContent=acc;scrollChat();}});
-    if(!acc)body.textContent='(silence)';
+    await aiComplete(msgs,{stream:true,onToken:t=>{acc+=t;body.innerHTML=renderMarkdown(acc);scrollChat();}});
+    if(!acc)body.innerHTML='(silence)';
     state.minds.history.push({role:'assistant',content:acc});
   }catch(err){th.remove();addMindMsg('ai','⚠ '+err.message);}
   persistMindsConversation();
@@ -1424,12 +1535,97 @@ function enterApp(u){
 ============================================================ */
 function escapeHtml(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 
+// ---- lightweight Markdown -> safe HTML renderer for AI responses ----
+function mdInline(s){
+  s=s.replace(/\*\*([^*\n]+)\*\*/g,'<strong>$1</strong>');
+  s=s.replace(/__([^_\n]+)__/g,'<strong>$1</strong>');
+  s=s.replace(/(^|[^*])\*([^*\n]+)\*(?!\*)/g,'$1<em>$2</em>');
+  s=s.replace(/(^|[^_])_([^_\n]+)_(?!_)/g,'$1<em>$2</em>');
+  s=s.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g,'<a href="$2" target="_blank" rel="noopener">$1</a>');
+  return s;
+}
+function renderMarkdown(raw){
+  if(raw==null||raw==='') return '';
+  let src=String(raw).replace(/\r\n/g,'\n');
+
+  // protect fenced code blocks & inline code so their content is never treated as markdown
+  const blocks=[];
+  src=src.replace(/```[a-zA-Z0-9_+-]*\n?([\s\S]*?)```/g,(m,code)=>{
+    const i=blocks.length;
+    blocks.push('<pre class="md-code"><code>'+escapeHtml(code.replace(/\n$/,''))+'</code></pre>');
+    return '\u0000B'+i+'\u0000';
+  });
+  const spans=[];
+  src=src.replace(/`([^`\n]+)`/g,(m,code)=>{
+    const i=spans.length;
+    spans.push('<code class="md-inline-code">'+escapeHtml(code)+'</code>');
+    return '\u0000S'+i+'\u0000';
+  });
+
+  src=escapeHtml(src); // safe now — placeholders and markdown punctuation survive escaping untouched
+
+  const lines=src.split('\n');
+  const out=[];
+  let para=[];
+  const flush=()=>{ if(para.length){ out.push('<p>'+mdInline(para.join(' '))+'</p>'); para=[]; } };
+  let i=0;
+  while(i<lines.length){
+    const line=lines[i];
+    if(/^\s*$/.test(line)){ flush(); i++; continue; }
+    if(/^\s*(-{3,}|\*{3,}|_{3,})\s*$/.test(line)){ flush(); out.push('<hr>'); i++; continue; }
+    const hm=line.match(/^(#{1,4})\s+(.*)$/);
+    if(hm){ flush(); const lvl=hm[1].length; out.push('<h'+lvl+'>'+mdInline(hm[2])+'</h'+lvl+'>'); i++; continue; }
+    if(/^\s*&gt;\s?/.test(line)){
+      flush(); const q=[];
+      while(i<lines.length && /^\s*&gt;\s?/.test(lines[i])){ q.push(lines[i].replace(/^\s*&gt;\s?/,'')); i++; }
+      out.push('<blockquote>'+mdInline(q.join(' '))+'</blockquote>');
+      continue;
+    }
+    if(/^\s*\|.*\|\s*$/.test(line) && lines[i+1] && /^\s*\|?[\s:|-]+\|[\s:|-]*$/.test(lines[i+1])){
+      flush();
+      const head=line.trim().replace(/^\||\|$/g,'').split('|').map(c=>c.trim());
+      i+=2;
+      const rows=[];
+      while(i<lines.length && /^\s*\|.*\|\s*$/.test(lines[i])){
+        rows.push(lines[i].trim().replace(/^\||\|$/g,'').split('|').map(c=>c.trim()));
+        i++;
+      }
+      let t='<div class="md-table-wrap"><table class="md-table"><thead><tr>'+head.map(c=>'<th>'+mdInline(c)+'</th>').join('')+'</tr></thead><tbody>';
+      rows.forEach(r=>{ t+='<tr>'+r.map(c=>'<td>'+mdInline(c)+'</td>').join('')+'</tr>'; });
+      t+='</tbody></table></div>';
+      out.push(t);
+      continue;
+    }
+    if(/^\s*[-*+]\s+/.test(line)){
+      flush(); const items=[];
+      while(i<lines.length && /^\s*[-*+]\s+/.test(lines[i])){ items.push(lines[i].replace(/^\s*[-*+]\s+/,'')); i++; }
+      out.push('<ul>'+items.map(it=>'<li>'+mdInline(it)+'</li>').join('')+'</ul>');
+      continue;
+    }
+    if(/^\s*\d+[.)]\s+/.test(line)){
+      flush(); const items=[];
+      while(i<lines.length && /^\s*\d+[.)]\s+/.test(lines[i])){ items.push(lines[i].replace(/^\s*\d+[.)]\s+/,'')); i++; }
+      out.push('<ol>'+items.map(it=>'<li>'+mdInline(it)+'</li>').join('')+'</ol>');
+      continue;
+    }
+    if(/^\u0000B\d+\u0000$/.test(line.trim())){ flush(); out.push(line.trim()); i++; continue; }
+    para.push(line.trim()); i++;
+  }
+  flush();
+
+  let html=out.join('\n');
+  html=html.replace(/\u0000B(\d+)\u0000/g,(m,idx)=>blocks[+idx]);
+  html=html.replace(/\u0000S(\d+)\u0000/g,(m,idx)=>spans[+idx]);
+  return html;
+}
+
 (function boot(){
-  // self-heal: if stored settings use a known provider, force its correct model
+  // migrate settings saved before the multi-provider update: infer a provider id from the old endpoint
   const s=getSettings();
-  if(s.endpoint){
-    const p=PRESETS.find(x=>x[1]===s.endpoint);
-    if(p && s.model!==p[2]) LS.set(SET_KEY,{endpoint:s.endpoint,key:s.key,model:p[2]});
+  if(!s.provider){
+    let inferred='openai';
+    if(s.endpoint){ const match=PRESETS.find(p=>p.endpoint && p.endpoint===s.endpoint); if(match) inferred=match.id; }
+    LS.set(SET_KEY,{provider:inferred,endpoint:s.endpoint||'',key:s.key||'',model:s.model||''});
   }
   initSettingsPanel();
   const cur=LS.get(CUR_KEY,null);
