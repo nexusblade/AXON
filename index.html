@@ -119,7 +119,7 @@ nav{display:flex;align-items:center;gap:20px;padding:14px 24px;z-index:20;
 .balance{display:flex;flex-direction:column;gap:4px;min-width:150px}
 .balance .row{display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:9px;letter-spacing:.1em}
 .balance .lab{width:52px;color:var(--gray);text-transform:uppercase}
-.balance .track{flex:1;height:5px;background:rgba(255,255,255,.06);border-radius:3px;overflow:hidden}
+.balance .track{flex:1;height:6px;background:rgba(255,255,255,.1);border-radius:3px;overflow:hidden;min-width:60px}
 .balance .fill{height:100%;border-radius:3px;transition:width .6s cubic-bezier(.2,.8,.2,1)}
 .balance .pct{width:30px;text-align:right;color:var(--white)}
 .fl{background:linear-gradient(90deg,var(--logic),#7fe0ff)}
@@ -131,7 +131,8 @@ nav{display:flex;align-items:center;gap:20px;padding:14px 24px;z-index:20;
   background:rgba(10,10,10,.55);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
   overflow:hidden;transition:width .3s cubic-bezier(.2,.8,.2,1);position:relative;z-index:25}
 #sidebar.collapsed{width:76px}
-.sb-inner{width:280px;height:100%;display:flex;flex-direction:column;padding:16px 14px 14px;gap:16px;overflow-y:auto;overflow-x:hidden}
+.sb-inner{width:280px;height:100%;display:flex;flex-direction:column;padding:16px 14px 14px;gap:16px;overflow-y:auto;overflow-x:hidden;transition:width .3s cubic-bezier(.2,.8,.2,1)}
+#sidebar.collapsed .sb-inner{width:76px;padding-left:10px;padding-right:10px}
 .sb-head{display:flex;align-items:center;gap:10px;padding:2px 2px 4px;border-bottom:1px solid rgba(255,255,255,.06);padding-bottom:14px}
 .sb-avatar{width:34px;height:34px;border-radius:50%;flex-shrink:0;display:grid;place-items:center;overflow:hidden;
   background:rgba(255,255,255,.05);border:1.5px solid var(--glass-brd);color:var(--gray)}
@@ -363,6 +364,7 @@ nav{display:flex;align-items:center;gap:20px;padding:14px 24px;z-index:20;
   #sidebarToggle{display:grid}
   #sidebar{position:fixed;top:0;left:0;bottom:0;width:280px;transform:translateX(-100%)}
   #sidebar.collapsed{width:280px}
+  #sidebar.collapsed .sb-inner{width:280px;padding-left:14px;padding-right:14px}
   #sidebar.open{transform:translateX(0);box-shadow:20px 0 60px rgba(0,0,0,.5)}
 }
 @media(prefers-reduced-motion:reduce){*{animation-duration:.01ms!important;transition-duration:.01ms!important}}
@@ -503,16 +505,6 @@ nav{display:flex;align-items:center;gap:20px;padding:14px 24px;z-index:20;
             <div class="glowline"></div><div class="ico">◈</div>
             <h3>Duality Vision</h3><p class="tag">Balanced Core</p>
             <p>Logic and intuition fused — practical, insightful, whole-brained thinking.</p>
-          </div>
-          <div class="mode-card glass c-know" data-nav="know">
-            <div class="glowline"></div><div class="ico">◑</div>
-            <h3>Know Your Mind</h3><p class="tag">Cognitive Scan</p>
-            <p>Discover the balance within. A living analysis of how you think.</p>
-          </div>
-          <div class="mode-card glass c-minds" data-nav="minds">
-            <div class="glowline"></div><div class="ico">✦</div>
-            <h3>Explore Great Minds</h3><p class="tag">Historical Dialogue</p>
-            <p>Step into the mind of any thinker in history and hold a conversation.</p>
           </div>
         </div>
       </div>
@@ -789,14 +781,13 @@ function renderBalance(){
   const p=m=>Math.round((b[m]/total)*100);
   const meter=document.getElementById('balanceMeter');
   meter.innerHTML=`
-    <div class="row"><span class="lab">Logical</span><span class="track"><i class="fill fl" data-w="${p('logical')}" style="width:0%"></i></span><span class="pct">${p('logical')}%</span></div>
-    <div class="row"><span class="lab">Intuitive</span><span class="track"><i class="fill fi" data-w="${p('intuitive')}" style="width:0%"></i></span><span class="pct">${p('intuitive')}%</span></div>
-    <div class="row"><span class="lab">Duality</span><span class="track"><i class="fill fd" data-w="${p('duality')}" style="width:0%"></i></span><span class="pct">${p('duality')}%</span></div>`;
-  requestAnimationFrame(()=>{
-    requestAnimationFrame(()=>{
-      meter.querySelectorAll('.fill').forEach(el=>{el.style.width=el.dataset.w+'%';});
-    });
-  });
+    <div class="row"><span class="lab">Logical</span><span class="track"><i class="fill fl" data-w="${p('logical')}"></i></span><span class="pct">${p('logical')}%</span></div>
+    <div class="row"><span class="lab">Intuitive</span><span class="track"><i class="fill fi" data-w="${p('intuitive')}"></i></span><span class="pct">${p('intuitive')}%</span></div>
+    <div class="row"><span class="lab">Duality</span><span class="track"><i class="fill fd" data-w="${p('duality')}"></i></span><span class="pct">${p('duality')}%</span></div>`;
+  meter.querySelectorAll('.fill').forEach(el=>{ el.style.width='0%'; });
+  setTimeout(()=>{
+    meter.querySelectorAll('.fill').forEach(el=>{ el.style.width=el.dataset.w+'%'; });
+  },30);
 }
 
 /* ============================================================
