@@ -102,7 +102,17 @@ label{display:block;font-family:var(--mono);font-size:10px;letter-spacing:.2em;
 #mainCol{flex:1;display:flex;flex-direction:column;min-width:0;height:100%}
 nav{display:flex;align-items:center;gap:20px;padding:14px 24px;z-index:20;
   border-bottom:1px solid var(--glass-brd);background:rgba(10,10,10,.55);
-  backdrop-filter:blur(20px);position:relative}
+  backdrop-filter:blur(20px);position:relative;overflow:visible}
+/* mode-tinted ambient navbar glow — cross-faded via opacity so the color shift is always smooth */
+.nsi-navglow{position:absolute;inset:0;z-index:-1;pointer-events:none;opacity:0;transition:opacity 1.5s ease}
+.nsi-navglow.on{opacity:1}
+.ng-logical{background:radial-gradient(ellipse 360px 100px at 82% 50%,rgba(0,191,255,.20),transparent 70%)}
+.ng-intuitive{background:radial-gradient(ellipse 360px 100px at 82% 50%,rgba(138,43,226,.22),transparent 70%)}
+.ng-duality{background:radial-gradient(ellipse 360px 100px at 82% 50%,rgba(255,215,0,.20),transparent 70%)}
+.ng-trinity{background:
+  radial-gradient(ellipse 420px 120px at 74% 50%,rgba(0,191,255,.16),transparent 55%),
+  radial-gradient(ellipse 420px 120px at 82% 50%,rgba(255,215,0,.18),transparent 60%),
+  radial-gradient(ellipse 420px 120px at 90% 50%,rgba(138,43,226,.16),transparent 55%)}
 .nav-logo{display:flex;align-items:center;gap:11px;cursor:pointer;flex-shrink:0}
 .nav-logo .logo-word{font-size:22px;letter-spacing:.2em}
 .nav-links{display:flex;gap:4px;margin:0 auto;flex-wrap:wrap;justify-content:center}
@@ -114,6 +124,24 @@ nav{display:flex;align-items:center;gap:20px;padding:14px 24px;z-index:20;
 .icon-btn{background:rgba(255,255,255,.04);border:1px solid var(--glass-brd);color:var(--gray);
   width:38px;height:38px;border-radius:11px;cursor:pointer;display:grid;place-items:center;transition:.2s;font-size:16px}
 .icon-btn:hover{color:var(--white);background:rgba(255,255,255,.09)}
+
+/* Neural Status Indicator — the always-alive animated brain in the navbar */
+.nsi{position:relative;width:94px;height:94px;flex-shrink:0;display:flex;align-items:center;justify-content:center;
+  cursor:default;animation:nsiBreathe 4.2s ease-in-out infinite}
+@keyframes nsiBreathe{0%,100%{transform:scale(1)}50%{transform:scale(1.018)}}
+.nsi-canvas{width:100%;height:100%;display:block}
+.nsi-label{position:absolute;top:100%;left:50%;transform:translate(-50%,4px) scale(.92);width:max-content;max-width:220px;
+  text-align:center;pointer-events:none;opacity:0;transition:opacity .45s ease,transform .45s ease;z-index:40}
+.nsi-label.show{opacity:1;transform:translate(-50%,10px) scale(1)}
+.nsi-label b{display:block;font-family:var(--mono);font-weight:800;font-size:11px;letter-spacing:.2em;
+  background:linear-gradient(90deg,var(--logic),var(--dual),var(--intu));-webkit-background-clip:text;background-clip:text;color:transparent;
+  filter:drop-shadow(0 0 10px rgba(255,215,0,.55))}
+.nsi-label span{display:block;font-family:var(--mono);font-size:9px;letter-spacing:.14em;color:var(--gray);margin-top:3px}
+@media(max-width:720px){
+  .nsi{width:60px;height:60px}
+  .nsi-label b{font-size:9.5px}
+  .nsi-label span{font-size:8px}
+}
 
 /* balance meter (nav) */
 .balance{display:flex;flex-direction:column;gap:4px;min-width:150px}
@@ -380,6 +408,8 @@ nav{display:flex;align-items:center;gap:20px;padding:14px 24px;z-index:20;
 
 @media(max-width:720px){
   .nav-links{order:3;width:100%;margin:6px 0 0}
+  .nsi{order:1}
+  .nav-right{order:2}
   .balance{min-width:120px}
   nav{flex-wrap:wrap;gap:12px}
   .wrap{padding:24px 16px 50px}
@@ -480,6 +510,10 @@ nav{display:flex;align-items:center;gap:20px;padding:14px 24px;z-index:20;
 
   <div id="mainCol">
   <nav>
+    <div class="nsi-navglow ng-logical" id="ngLogical"></div>
+    <div class="nsi-navglow ng-intuitive" id="ngIntuitive"></div>
+    <div class="nsi-navglow ng-duality" id="ngDuality"></div>
+    <div class="nsi-navglow ng-trinity" id="ngTrinity"></div>
     <button class="icon-btn" id="sidebarToggle" title="Menu">☰</button>
     <div class="nav-logo" id="navHome">
       <svg width="30" height="30" viewBox="0 0 64 64" class="brainlogo">
@@ -492,6 +526,10 @@ nav{display:flex;align-items:center;gap:20px;padding:14px 24px;z-index:20;
       <button data-nav="chat" data-mode="logical">Logical</button>
       <button data-nav="chat" data-mode="intuitive">Intuitive</button>
       <button data-nav="chat" data-mode="duality">Duality Vision</button>
+    </div>
+    <div class="nsi" id="nsi" title="Neural Status — live cognitive state">
+      <canvas id="nsiCanvas" class="nsi-canvas"></canvas>
+      <div class="nsi-label" id="nsiLabel"><b>TRINITY ACHIEVED</b><span>Logic • Intuition • Harmony</span></div>
     </div>
     <div class="nav-right">
       <div class="balance" id="balanceMeter"></div>
@@ -677,6 +715,242 @@ const state = {
   addEventListener('resize',()=>{resize();});
   init();step();
 })();
+
+/* ============================================================
+   NEURAL STATUS INDICATOR — the animated brain in the navbar.
+   Not decorative: it mirrors the app's active cognitive mode live.
+============================================================ */
+(function(){
+  const canvas=document.getElementById('nsiCanvas');
+  if(!canvas) return;
+  const ctx=canvas.getContext('2d');
+  const REDUCED = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  // same outline the AXON logo uses elsewhere, so the indicator matches the brand mark
+  const LEFT_PATH=new Path2D("M32 6c-7 0-11 5-12 9-6 0-10 5-10 10 0 3 1 6 4 8-2 2-3 5-3 7 0 6 5 10 11 10 2 3 5 5 10 5V6z");
+  const RIGHT_PATH=new Path2D("M32 6c7 0 11 5 12 9 6 0 10 5 10 10 0 3-1 6-4 8 2 2 3 5 3 7 0 6-5 10-11 10-2 3-5 5-10 5V6z");
+  const BLUE='0,191,255', PURPLE='138,43,226', PINK='255,109,216', GOLD='255,215,0';
+
+  // target activation levels (0-1) per element, per mode
+  const CFG={
+    logical:  {left:1,   right:.16, bridge:.10, halo:.04},
+    intuitive:{left:.16, right:1,   bridge:.10, halo:.04},
+    duality:  {left:.5,  right:.5,  bridge:1,   halo:.10},
+    trinity:  {left:1,   right:1,   bridge:1,   halo:1},
+  };
+
+  let dpr=Math.max(1,window.devicePixelRatio||1), size=94;
+  function resize(){
+    const r=canvas.getBoundingClientRect();
+    size=r.width||94;
+    canvas.width=Math.round(size*dpr); canvas.height=Math.round(size*dpr);
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+  }
+  addEventListener('resize',resize);
+
+  function mix(c1,c2,m){
+    const a=c1.split(',').map(Number), b=c2.split(',').map(Number);
+    return a.map((v,i)=>Math.round(v+(b[i]-v)*m)).join(',');
+  }
+  function smoothstep(x){ x=Math.max(0,Math.min(1,x)); return x*x*(3-2*x); }
+
+  const st={
+    mode:'logical', from:Object.assign({},CFG.logical), modeChangeAt:performance.now(),
+    t0:performance.now(), haloAngle:0,
+    trinityAt:0, burstDone:true,
+    lastFlash:0, lastMajorPulse:-99, bridgeFlashUntil:0,
+    orbiters:[], fx:[],
+  };
+
+  function activation(){
+    const target=CFG[st.mode];
+    const e=smoothstep((performance.now()-st.modeChangeAt)/1500);
+    const f=st.from;
+    return {
+      left:f.left+(target.left-f.left)*e,
+      right:f.right+(target.right-f.right)*e,
+      bridge:f.bridge+(target.bridge-f.bridge)*e,
+      halo:f.halo+(target.halo-f.halo)*e,
+    };
+  }
+
+  function showLabel(){
+    const label=document.getElementById('nsiLabel');
+    if(!label) return;
+    label.classList.add('show');
+    clearTimeout(showLabel._t);
+    showLabel._t=setTimeout(()=>label.classList.remove('show'),2000);
+  }
+
+  // called from setChatMode() so the brain reacts the instant a mode is picked anywhere in the app
+  function setMode(mode){
+    if(!CFG[mode]||mode===st.mode) return;
+    st.from=activation();
+    st.mode=mode;
+    st.modeChangeAt=performance.now();
+    if(mode==='trinity'){ st.trinityAt=performance.now(); st.burstDone=false; showLabel(); }
+  }
+  window.setNeuralIndicatorMode=setMode;
+
+  function ensureOrbiters(n){
+    while(st.orbiters.length<n){
+      st.orbiters.push({angle:Math.random()*Math.PI*2,radius:12+Math.random()*9,
+        speed:(0.25+Math.random()*0.5)*(Math.random()<0.5?1:-1),size:0.6+Math.random()*1.1,mix:Math.random()});
+    }
+    if(st.orbiters.length>n) st.orbiters.length=n;
+  }
+  function spawnArc(cx,cy,color,spread){
+    const pts=[[cx,cy]]; let x=cx,y=cy;
+    for(let i=0;i<3;i++){ x+=(Math.random()-0.5)*spread; y+=(Math.random()-0.5)*spread*0.6+2; pts.push([x,y]); }
+    st.fx.push({kind:'arc',pts,color,born:performance.now(),life:220+Math.random()*120});
+  }
+  function spawnRing(cx,cy,color){ st.fx.push({kind:'ring',cx,cy,color,born:performance.now(),life:650}); }
+  function spawnBurst(cx,cy,n,colors){
+    for(let i=0;i<n;i++){
+      const a=Math.random()*Math.PI*2, sp=0.5+Math.random()*1.7;
+      st.fx.push({kind:'spark',x:cx,y:cy,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,
+        color:colors[i%colors.length],size:0.7+Math.random()*1.3,born:performance.now(),life:700+Math.random()*500});
+    }
+  }
+  function drawFX(now){
+    st.fx=st.fx.filter(f=>now-f.born<f.life);
+    st.fx.forEach(f=>{
+      const p=(now-f.born)/f.life, alpha=1-p;
+      if(f.kind==='arc'){
+        ctx.save();
+        ctx.strokeStyle=`rgba(${f.color},${0.8*alpha})`;
+        ctx.lineWidth=1.1; ctx.shadowColor=`rgba(${f.color},.9)`; ctx.shadowBlur=6;
+        ctx.beginPath(); f.pts.forEach(([x,y],i)=>i===0?ctx.moveTo(x,y):ctx.lineTo(x,y)); ctx.stroke();
+        ctx.restore();
+      }else if(f.kind==='ring'){
+        ctx.save();
+        ctx.strokeStyle=`rgba(${f.color},${0.6*alpha})`; ctx.lineWidth=1;
+        ctx.beginPath(); ctx.arc(f.cx,f.cy,2+p*9,0,Math.PI*2); ctx.stroke();
+        ctx.restore();
+      }else if(f.kind==='spark'){
+        f.x+=f.vx*0.14; f.y+=f.vy*0.14; f.vx*=0.96; f.vy*=0.96;
+        ctx.save();
+        ctx.beginPath(); ctx.arc(f.x,f.y,f.size,0,Math.PI*2);
+        ctx.fillStyle=`rgba(${f.color},${0.85*alpha})`;
+        ctx.shadowColor=`rgba(${f.color},.9)`; ctx.shadowBlur=5;
+        ctx.fill(); ctx.restore();
+      }
+    });
+  }
+
+  function drawHemi(path,lvl,color,t,dashSpeed){
+    ctx.save();
+    ctx.strokeStyle=`rgba(${color},${0.22*lvl})`;
+    ctx.lineWidth=5; ctx.shadowColor=`rgba(${color},${0.9*lvl})`; ctx.shadowBlur=7+9*lvl;
+    ctx.stroke(path);
+    ctx.shadowBlur=0;
+    ctx.strokeStyle=`rgba(${color},${0.18+0.8*lvl})`;
+    ctx.lineWidth=1.5+1.1*lvl;
+    if(dashSpeed>0){ ctx.setLineDash([7,11]); ctx.lineDashOffset=-(t*dashSpeed)%18; }
+    else ctx.setLineDash([]);
+    ctx.stroke(path);
+    ctx.restore();
+  }
+
+  function draw(now){
+    const t=(now-st.t0)/1000;
+    const act=activation();
+    const breathe=0.5+0.5*Math.sin(t*1.05);
+
+    ctx.clearRect(0,0,size,size);
+    ctx.save();
+    ctx.scale(size/64,size/64);
+
+    // ambient halo ring — faint always, a bright rotating ring once Trinity fuses everything
+    if(act.halo>0.02){
+      ctx.save();
+      ctx.translate(32,32); ctx.rotate(st.haloAngle); ctx.translate(-32,-32);
+      ctx.beginPath(); ctx.arc(32,32,29,0,Math.PI*2);
+      ctx.setLineDash([4,5]);
+      ctx.strokeStyle=`rgba(${GOLD},${0.45*act.halo})`;
+      ctx.shadowColor=`rgba(${GOLD},${0.8*act.halo})`; ctx.shadowBlur=9*act.halo;
+      ctx.lineWidth=1.3; ctx.stroke();
+      ctx.restore();
+    }
+    if(!REDUCED) st.haloAngle+=0.0035+0.006*act.halo;
+
+    // corpus callosum bridge
+    const flash=now<st.bridgeFlashUntil?1.6:1;
+    ctx.save();
+    ctx.lineCap='round';
+    ctx.strokeStyle=`rgba(${GOLD},${(0.12+0.5*act.bridge)*flash})`;
+    ctx.lineWidth=(1.3+1.3*act.bridge)*flash;
+    ctx.shadowColor=`rgba(${GOLD},${0.7*act.bridge})`; ctx.shadowBlur=(5+9*act.bridge)*flash;
+    ctx.beginPath(); ctx.moveTo(32,15); ctx.lineTo(32,49); ctx.stroke();
+    ctx.restore();
+    if(act.bridge>0.25){
+      const trav=(Math.sin(t*1.7)+1)/2, y=15+trav*34;
+      ctx.beginPath(); ctx.arc(32,y,1.5,0,Math.PI*2);
+      ctx.fillStyle=`rgba(${GOLD},${0.85*act.bridge})`;
+      ctx.shadowColor=`rgba(${GOLD},.9)`; ctx.shadowBlur=7; ctx.fill();
+      if(t-st.lastMajorPulse>3){
+        st.lastMajorPulse=t; st.bridgeFlashUntil=now+420;
+        spawnRing(32,15,GOLD); spawnRing(32,49,GOLD);
+      }
+    }
+
+    // hemispheres — left = logic (electric blue), right = intuition (purple/pink)
+    const rightColor = st.mode==='intuitive' ? mix(PURPLE,PINK,0.5+0.5*Math.sin(t*0.6)) : PURPLE;
+    drawHemi(LEFT_PATH, act.left, BLUE, t, act.left>0.4?(st.mode==='logical'?66:30):0);
+    drawHemi(RIGHT_PATH, act.right, rightColor, t, act.right>0.4?(st.mode==='intuitive'?26:34):0);
+
+    // core
+    const coreColor = st.mode==='logical'?BLUE:st.mode==='intuitive'?rightColor:GOLD;
+    const coreR=2+0.7*breathe*(0.4+0.3*(act.left+act.right));
+    ctx.beginPath(); ctx.arc(32,32,coreR,0,Math.PI*2);
+    ctx.fillStyle=`rgba(${coreColor},${0.55+0.45*breathe})`;
+    ctx.shadowColor=`rgba(${coreColor},1)`; ctx.shadowBlur=9; ctx.fill();
+
+    // galaxy-like orbiting particles — bloom around the intuitive side, fuse to center in Trinity
+    const galaxyLevel=Math.max(act.right, st.mode==='trinity'?0.7:0);
+    if(galaxyLevel>0.35){
+      ensureOrbiters(Math.round(6+8*galaxyLevel));
+      const cx=st.mode==='trinity'?32:44, cy=32;
+      st.orbiters.forEach(o=>{
+        if(!REDUCED) o.angle+=o.speed*0.02;
+        const x=cx+Math.cos(o.angle)*o.radius, y=cy+Math.sin(o.angle)*o.radius*0.85;
+        const col=mix(PURPLE,GOLD,o.mix);
+        ctx.beginPath(); ctx.arc(x,y,o.size,0,Math.PI*2);
+        ctx.fillStyle=`rgba(${col},${0.5*galaxyLevel})`;
+        ctx.shadowColor=`rgba(${col},.8)`; ctx.shadowBlur=4; ctx.fill();
+      });
+    }else{ st.orbiters.length=0; }
+
+    // electrical arcs + pulse rings across the logical side, roughly every 2s
+    const boltLevel=Math.max(act.left, st.mode==='trinity'?0.7:0);
+    if(boltLevel>0.5 && !REDUCED && t-st.lastFlash>2){
+      st.lastFlash=t;
+      spawnArc(15+Math.random()*10,18+Math.random()*20,BLUE,6);
+      spawnRing(20,32,BLUE);
+    }
+
+    // Trinity intro: a one-time particle explosion partway through the phase sequence
+    if(st.mode==='trinity' && !st.burstDone && now-st.trinityAt>1800){
+      st.burstDone=true;
+      spawnBurst(32,32,26,[BLUE,PURPLE,GOLD]);
+    }
+
+    drawFX(now);
+    ctx.restore();
+    if(!REDUCED) requestAnimationFrame(draw); else setTimeout(()=>requestAnimationFrame(draw),450);
+  }
+
+  resize();
+  requestAnimationFrame(draw);
+})();
+
+/* nav ambient glow — cross-fades between mode-tinted layers behind the navbar content */
+function setNavGlow(mode){
+  ['logical','intuitive','duality','trinity'].forEach(m=>{
+    const el=document.getElementById('ng'+m.charAt(0).toUpperCase()+m.slice(1));
+    if(el) el.classList.toggle('on', m===mode);
+  });
+}
 
 /* ============================================================
    VIEW ROUTING
@@ -928,6 +1202,8 @@ const FORMAT_GUIDE="Format your reply in clean Markdown so it renders well: shor
 const chatMsgs=document.getElementById('chatMsgs');
 function setChatMode(m){
   state.mode=m;
+  if(window.setNeuralIndicatorMode) window.setNeuralIndicatorMode(m);
+  if(window.setNavGlow) window.setNavGlow(m);
   document.querySelectorAll('#modeSwitch button').forEach(b=>b.classList.toggle('on',b.dataset.m===m));
   const cfg=MODES[m];
   if(cfg){
