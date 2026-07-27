@@ -317,9 +317,28 @@ nav{display:flex;align-items:center;gap:20px;padding:14px 24px;z-index:20;
 @keyframes tbeat{0%,100%{opacity:.3;transform:scale(.7)}50%{opacity:1;transform:scale(1.3)}}
 
 .composer{display:flex;gap:10px;position:sticky;bottom:0;padding:14px;margin-top:4px;
-  border-radius:18px;border:1px solid var(--glass-brd);background:rgba(15,15,15,.7);backdrop-filter:blur(20px)}
+  border-radius:18px;border:1px solid var(--glass-brd);background:rgba(15,15,15,.7);backdrop-filter:blur(20px);
+  flex-wrap:wrap;align-items:flex-end}
+.composer .composer-row{display:flex;gap:10px;width:100%;align-items:center}
 .composer input{flex:1}
 .composer .btn{flex-shrink:0}
+.attach-btn{flex-shrink:0;width:44px;height:44px;border-radius:14px;border:1px solid var(--glass-brd);
+  background:rgba(255,255,255,.04);color:var(--gray);cursor:pointer;display:grid;place-items:center;
+  transition:.2s;font-size:20px;line-height:1}
+.attach-btn:hover{color:var(--white);background:rgba(255,255,255,.09);border-color:var(--dual)}
+.attach-btn:active{transform:scale(.94)}
+.attach-strip{display:flex;gap:8px;flex-wrap:wrap;width:100%;margin-bottom:2px}
+.attach-strip:empty{display:none;margin:0}
+.attach-chip{display:flex;align-items:center;gap:8px;padding:6px 10px 6px 6px;border-radius:12px;
+  border:1px solid var(--glass-brd);background:rgba(255,255,255,.05);max-width:220px;position:relative}
+.attach-chip .thumb{width:30px;height:30px;border-radius:8px;object-fit:cover;flex-shrink:0;background:rgba(255,255,255,.06)}
+.attach-chip .file-ic{width:30px;height:30px;border-radius:8px;flex-shrink:0;display:grid;place-items:center;
+  background:rgba(255,215,0,.1);color:var(--dual);font-family:var(--mono);font-size:9px;font-weight:800;letter-spacing:.02em}
+.attach-chip .meta{min-width:0;display:flex;flex-direction:column;gap:1px}
+.attach-chip .fname{font-size:11.5px;color:var(--white);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:130px}
+.attach-chip .fnote{font-family:var(--mono);font-size:9px;color:var(--gray);letter-spacing:.03em}
+.attach-chip .rm{flex-shrink:0;background:none;border:none;color:#5a616e;cursor:pointer;font-size:13px;padding:4px 6px;border-radius:7px;transition:.2s}
+.attach-chip .rm:hover{color:#ff6b81;background:rgba(255,107,129,.1)}
 
 /* ---------- KNOW YOUR MIND ---------- */
 .center-hero{text-align:center;max-width:640px;margin:20px auto 0}
@@ -591,9 +610,14 @@ nav{display:flex;align-items:center;gap:20px;padding:14px 24px;z-index:20;
         <div class="mode-intro" id="modeIntro"></div>
         <div class="msgs" id="chatMsgs"></div>
         <div class="composer">
-          <input id="chatInput" placeholder="Ask AXON anything…">
-          <button class="btn primary" id="chatSend">Send</button>
+          <div class="attach-strip" id="chatAttachStrip"></div>
+          <div class="composer-row">
+            <button class="attach-btn" id="chatAttachBtn" title="Attach image or file" type="button">+</button>
+            <input id="chatInput" placeholder="Ask AXON anything…">
+            <button class="btn primary" id="chatSend">Send</button>
+          </div>
         </div>
+        <input type="file" id="chatFileInput" style="display:none" multiple accept="image/*,.txt,.md,.csv,.json,.log,.js,.ts,.py,.html,.css,.pdf,.doc,.docx">
       </div>
     </div>
 
@@ -672,6 +696,8 @@ const state = {
   activeConvId:null,
   minds:{active:null, profile:null, history:[], convId:null},
   know:{questions:[], answers:[], idx:0, running:false},
+  chatPending:[],        // pending attachments for the main composer
+  mindPending:[],        // pending attachments for the Great Minds composer
 };
 
 /* ============================================================
@@ -1150,11 +1176,118 @@ function extractJSON(text){
   throw new Error('Could not parse AI response as JSON.');
 }
 function noSettingsMsg(){return 'AXON needs an AI connection first. Open Settings (⚙) and add an API key.';}
-function toApiMessages(arr){
+function toApiMessages(arr, authType){
   // Providers reject unknown message properties — strip internal fields (ts, mode, etc.)
   // before anything from state.chat / state.minds.history is sent over the wire.
-  return arr.map(m=>({role:m.role,content:m.content}));
+  // Attachments (images / text files) are folded in here, shaped per-provider.
+  return arr.map(m=>{
+    const atts=m.attachments||[];
+    if(!atts.length) return {role:m.role,content:m.content};
+
+    let text=m.content||'';
+    atts.filter(a=>a.type==='text').forEach(a=>{
+      text += (text?'\n\n':'') + '[Attached file: '+a.name+']\n' + a.content;
+    });
+    atts.filter(a=>a.type==='unreadable').forEach(a=>{
+      text += (text?'\n\n':'') + '[Attached file: '+a.name+' — this file type could not be read in-browser; content not included.]';
+    });
+    const images=atts.filter(a=>a.type==='image');
+    if(!images.length) return {role:m.role,content:text};
+
+    const parts=[];
+    if(text) parts.push({type:'text',text});
+    images.forEach(a=>{
+      if(authType==='anthropic'){
+        parts.push({type:'image',source:{type:'base64',media_type:a.mediaType,data:a.dataUrl.split(',')[1]}});
+      }else{
+        parts.push({type:'image_url',image_url:{url:a.dataUrl}});
+      }
+    });
+    return {role:m.role,content:parts};
+  });
 }
+
+/* ============================================================
+   ATTACHMENTS  (shared helpers for the chat + great-minds composers)
+============================================================ */
+const TEXT_EXT=['txt','md','markdown','csv','json','log','js','ts','jsx','tsx','py','html','css','xml','yml','yaml'];
+const MAX_ATTACH_BYTES=8*1024*1024; // 8MB per file, generous for a browser-only reader
+
+function extOf(name){const m=/\.([a-z0-9]+)$/i.exec(name||'');return m?m[1].toLowerCase():'';}
+function readFileAsDataURL(file){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=()=>rej(r.error);r.readAsDataURL(file);});}
+function readFileAsText(file){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=()=>rej(r.error);r.readAsText(file);});}
+
+async function filesToAttachments(files){
+  const out=[];
+  for(const file of files){
+    if(file.size>MAX_ATTACH_BYTES){
+      out.push({type:'unreadable',name:file.name,note:'Too large ('+Math.round(file.size/1e6)+'MB)'});
+      continue;
+    }
+    if(file.type.startsWith('image/')){
+      try{
+        const dataUrl=await readFileAsDataURL(file);
+        out.push({type:'image',name:file.name,mediaType:file.type||'image/png',dataUrl});
+      }catch(e){ out.push({type:'unreadable',name:file.name,note:'Could not read image'}); }
+      continue;
+    }
+    const ext=extOf(file.name);
+    if(TEXT_EXT.includes(ext) || file.type.startsWith('text/')){
+      try{
+        let content=await readFileAsText(file);
+        if(content.length>20000) content=content.slice(0,20000)+'\n…(truncated)';
+        out.push({type:'text',name:file.name,content});
+      }catch(e){ out.push({type:'unreadable',name:file.name,note:'Could not read file'}); }
+      continue;
+    }
+    // pdf / doc / docx / other binary — can't parse in-browser without a library, attach as a note
+    out.push({type:'unreadable',name:file.name,note:'Preview not supported — only images and plain-text files are read'});
+  }
+  return out;
+}
+function attachChipHtml(a,idx){
+  if(a.type==='image'){
+    return `<div class="attach-chip" data-i="${idx}"><img class="thumb" src="${a.dataUrl}" alt="">
+      <div class="meta"><span class="fname">${escapeHtml(a.name)}</span><span class="fnote">Image</span></div>
+      <button class="rm" title="Remove">✕</button></div>`;
+  }
+  if(a.type==='text'){
+    return `<div class="attach-chip" data-i="${idx}"><div class="file-ic">TXT</div>
+      <div class="meta"><span class="fname">${escapeHtml(a.name)}</span><span class="fnote">Text attached</span></div>
+      <button class="rm" title="Remove">✕</button></div>`;
+  }
+  return `<div class="attach-chip" data-i="${idx}"><div class="file-ic">FILE</div>
+    <div class="meta"><span class="fname">${escapeHtml(a.name)}</span><span class="fnote">${escapeHtml(a.note||'Not read')}</span></div>
+    <button class="rm" title="Remove">✕</button></div>`;
+}
+function renderAttachStrip(stripId,pendingArr,onRemove){
+  const strip=document.getElementById(stripId); if(!strip)return;
+  strip.innerHTML=pendingArr.map((a,i)=>attachChipHtml(a,i)).join('');
+  strip.querySelectorAll('.rm').forEach(btn=>{
+    btn.onclick=()=>{
+      const i=+btn.closest('.attach-chip').dataset.i;
+      onRemove(i);
+    };
+  });
+}
+async function handleAttachFiles(fileList,pendingArr,stripId,onRemove){
+  const files=Array.from(fileList||[]);
+  if(!files.length)return;
+  const added=await filesToAttachments(files);
+  pendingArr.push(...added);
+  renderAttachStrip(stripId,pendingArr,onRemove);
+}
+
+// main chat composer wiring
+function removeChatAttachment(i){
+  state.chatPending.splice(i,1);
+  renderAttachStrip('chatAttachStrip',state.chatPending,removeChatAttachment);
+}
+document.getElementById('chatAttachBtn').onclick=()=>document.getElementById('chatFileInput').click();
+document.getElementById('chatFileInput').addEventListener('change',async e=>{
+  await handleAttachFiles(e.target.files,state.chatPending,'chatAttachStrip',removeChatAttachment);
+  e.target.value='';
+});
 
 /* ============================================================
    BALANCE METER
@@ -1231,9 +1364,23 @@ function setChatMode(m){
 document.getElementById('modeSwitch').addEventListener('click',e=>{
   const b=e.target.closest('button');if(!b)return;setChatMode(b.dataset.m);
 });
-function addUserBubble(text){
+function addUserBubble(text,attachments){
   const d=document.createElement('div');d.className='msg user';
-  d.innerHTML=`<div class="bubble"></div>`;d.querySelector('.bubble').textContent=text;
+  let inner='';
+  if(attachments&&attachments.length){
+    const imgs=attachments.filter(a=>a.type==='image');
+    const others=attachments.filter(a=>a.type!=='image');
+    if(imgs.length){
+      inner+='<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:'+(text?'8px':'0')+'">'+
+        imgs.map(a=>`<img src="${a.dataUrl}" style="width:64px;height:64px;object-fit:cover;border-radius:10px;border:1px solid var(--glass-brd)">`).join('')+'</div>';
+    }
+    if(others.length){
+      inner+='<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:'+(text?'8px':'0')+'">'+
+        others.map(a=>`<span style="font-family:var(--mono);font-size:10px;letter-spacing:.05em;background:rgba(255,255,255,.08);padding:5px 9px;border-radius:8px">📎 ${escapeHtml(a.name)}</span>`).join('')+'</div>';
+    }
+  }
+  d.innerHTML=`<div class="bubble">${inner}<span class="txt"></span></div>`;
+  d.querySelector('.txt').textContent=text||'';
   chatMsgs.appendChild(d);scrollChat();
 }
 function thinkingEl(){
@@ -1259,12 +1406,17 @@ function addPreferBtn(container,mode){
 
 async function sendChat(){
   const input=document.getElementById('chatInput');
-  const text=input.value.trim();if(!text)return;
-  if(!getSettings().key){addUserBubble(text);const w=document.createElement('div');w.className='msg ai';w.innerHTML='<div class="card duality"><div class="body"></div></div>';w.querySelector('.body').innerHTML=renderMarkdown(noSettingsMsg());chatMsgs.appendChild(w);scrollChat();input.value='';return;}
+  const text=input.value.trim();
+  const attachments=state.chatPending.slice();
+  if(!text && !attachments.length)return;
+  if(!getSettings().key){addUserBubble(text,attachments);const w=document.createElement('div');w.className='msg ai';w.innerHTML='<div class="card duality"><div class="body"></div></div>';w.querySelector('.body').innerHTML=renderMarkdown(noSettingsMsg());chatMsgs.appendChild(w);scrollChat();input.value='';state.chatPending=[];renderAttachStrip('chatAttachStrip',state.chatPending,removeChatAttachment);return;}
   input.value='';
-  addUserBubble(text);
-  state.chat.push({role:'user',content:text,ts:Date.now(),mode:state.mode});
+  state.chatPending=[];
+  renderAttachStrip('chatAttachStrip',state.chatPending,removeChatAttachment);
+  addUserBubble(text,attachments);
+  state.chat.push({role:'user',content:text,ts:Date.now(),mode:state.mode,attachments});
   const th=thinkingEl();
+  const {auth}=resolveProvider(getSettings());
 
   if(state.mode==='trinity'){
     th.remove();
@@ -1274,7 +1426,7 @@ async function sendChat(){
       const card=aiCardEl(m);wrap.appendChild(card);
       const body=card.querySelector('.body');body.innerHTML='…';let acc='';
       try{
-        const msgs=[{role:'system',content:MODES[m].prompt+' '+FORMAT_GUIDE}].concat(toApiMessages(state.chat.slice(-8)));
+        const msgs=[{role:'system',content:MODES[m].prompt+' '+FORMAT_GUIDE}].concat(toApiMessages(state.chat.slice(-8),auth));
         await aiComplete(msgs,{stream:true,onToken:t=>{acc+=t;body.innerHTML=renderMarkdown(acc);scrollChat();}});
         if(!acc)body.innerHTML='(no response)';
       }catch(err){body.innerHTML=renderMarkdown('⚠ '+err.message);}
@@ -1287,7 +1439,7 @@ async function sendChat(){
     const card=aiCardEl(m);wrap.appendChild(card);
     const body=card.querySelector('.body');let acc='';
     try{
-      const msgs=[{role:'system',content:MODES[m].prompt+' '+FORMAT_GUIDE}].concat(toApiMessages(state.chat.slice(-10)));
+      const msgs=[{role:'system',content:MODES[m].prompt+' '+FORMAT_GUIDE}].concat(toApiMessages(state.chat.slice(-10),auth));
       th.remove();chatMsgs.appendChild(wrap);
       await aiComplete(msgs,{stream:true,onToken:t=>{acc+=t;body.innerHTML=renderMarkdown(acc);scrollChat();}});
       if(!acc)body.innerHTML='(no response)';
@@ -1379,7 +1531,7 @@ function renderSidebarHistory(){
 function rebuildChatUI(){
   chatMsgs.innerHTML='';
   state.chat.forEach(m=>{
-    if(m.role==='user'){addUserBubble(m.content);}
+    if(m.role==='user'){addUserBubble(m.content,m.attachments);}
     else if(m.role==='assistant'){
       const mm=MODES[m.mode]?m.mode:state.mode;
       if(MODES[mm]){
@@ -1401,7 +1553,7 @@ function loadConversation(id){
     renderMindStage(state.minds.profile);
     const box=document.getElementById('mindMsgs');if(box)box.innerHTML='';
     state.minds.history.forEach(m=>{
-      if(m.role==='user')addMindMsg('user',m.content);
+      if(m.role==='user')addMindMsg('user',m.content,m.attachments);
       else{const el=addMindMsg('ai','');el.querySelector('.body').innerHTML=renderMarkdown(m.content);}
     });
     showPane('minds');
@@ -1426,6 +1578,8 @@ function startNewChat(nav){
   }
   state.chat=[];
   state.minds.convId=null;
+  state.chatPending=[];
+  renderAttachStrip('chatAttachStrip',state.chatPending,removeChatAttachment);
   chatMsgs.innerHTML='';
   const id='c'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
   state.activeConvId=id;
@@ -1618,18 +1772,52 @@ function renderMindStage(p){
       </div>
     </div>
     <div class="chatbox"><div class="msgs" id="mindMsgs" style="padding-top:0"></div>
-      <div class="composer"><input id="mindInput" placeholder="Speak with ${escapeHtml(p.name||'them')}…"><button class="btn primary" id="mindSend">Send</button></div>
+      <div class="composer">
+        <div class="attach-strip" id="mindAttachStrip"></div>
+        <div class="composer-row">
+          <button class="attach-btn" id="mindAttachBtn" title="Attach image or file" type="button">+</button>
+          <input id="mindInput" placeholder="Speak with ${escapeHtml(p.name||'them')}…">
+          <button class="btn primary" id="mindSend">Send</button>
+        </div>
+      </div>
+      <input type="file" id="mindFileInput" style="display:none" multiple accept="image/*,.txt,.md,.csv,.json,.log,.js,.ts,.py,.html,.css,.pdf,.doc,.docx">
     </div>`;
   document.getElementById('mindBack').onclick=renderMindsIntro;
   document.getElementById('mindSend').onclick=sendMind;
   document.getElementById('mindInput').addEventListener('keydown',e=>{if(e.key==='Enter')sendMind();});
+  document.getElementById('mindAttachBtn').onclick=()=>document.getElementById('mindFileInput').click();
+  document.getElementById('mindFileInput').addEventListener('change',async e=>{
+    await handleAttachFiles(e.target.files,state.mindPending,'mindAttachStrip',removeMindAttachment);
+    e.target.value='';
+  });
+  state.mindPending=[];
+  renderAttachStrip('mindAttachStrip',state.mindPending,removeMindAttachment);
   if(p.greeting){addMindMsg('ai',p.greeting);}
 }
-function addMindMsg(role,text){
+function removeMindAttachment(i){
+  state.mindPending.splice(i,1);
+  renderAttachStrip('mindAttachStrip',state.mindPending,removeMindAttachment);
+}
+function addMindMsg(role,text,attachments){
   const box=document.getElementById('mindMsgs');
   if(role==='user'){
-    const d=document.createElement('div');d.className='msg user';d.innerHTML='<div class="bubble"></div>';
-    d.querySelector('.bubble').textContent=text;box.appendChild(d);
+    const d=document.createElement('div');d.className='msg user';
+    let inner='';
+    if(attachments&&attachments.length){
+      const imgs=attachments.filter(a=>a.type==='image');
+      const others=attachments.filter(a=>a.type!=='image');
+      if(imgs.length){
+        inner+='<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:'+(text?'8px':'0')+'">'+
+          imgs.map(a=>`<img src="${a.dataUrl}" style="width:64px;height:64px;object-fit:cover;border-radius:10px;border:1px solid var(--glass-brd)">`).join('')+'</div>';
+      }
+      if(others.length){
+        inner+='<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:'+(text?'8px':'0')+'">'+
+          others.map(a=>`<span style="font-family:var(--mono);font-size:10px;letter-spacing:.05em;background:rgba(255,255,255,.08);padding:5px 9px;border-radius:8px">📎 ${escapeHtml(a.name)}</span>`).join('')+'</div>';
+      }
+    }
+    d.innerHTML=`<div class="bubble">${inner}<span class="txt"></span></div>`;
+    d.querySelector('.txt').textContent=text||'';
+    box.appendChild(d);
   }else{
     const d=document.createElement('div');d.className='msg ai';
     d.innerHTML=`<div class="card duality"><div class="who"><span style="width:8px;height:8px;border-radius:50%;background:var(--dual);display:inline-block"></span>${escapeHtml(state.minds.active)} <span style="color:var(--gray);letter-spacing:.1em">(AI Interpretation)</span></div><div class="body"></div></div>`;
@@ -1638,15 +1826,22 @@ function addMindMsg(role,text){
   scrollChat();return box.lastChild;
 }
 async function sendMind(){
-  const input=document.getElementById('mindInput');const text=input.value.trim();if(!text)return;
-  input.value='';addMindMsg('user',text);
-  state.minds.history.push({role:'user',content:text});
+  const input=document.getElementById('mindInput');
+  const text=input.value.trim();
+  const attachments=state.mindPending.slice();
+  if(!text && !attachments.length)return;
+  input.value='';
+  state.mindPending=[];
+  renderAttachStrip('mindAttachStrip',state.mindPending,removeMindAttachment);
+  addMindMsg('user',text,attachments);
+  state.minds.history.push({role:'user',content:text,attachments});
   const box=document.getElementById('mindMsgs');
   const th=document.createElement('div');th.className='thinking';
   th.innerHTML=`<span class="tdot"></span><svg class="eeg" viewBox="0 0 70 26"><polyline points="0,13 8,13 12,4 16,22 20,13 30,13 34,8 38,18 42,13 70,13"/></svg><span>${escapeHtml(state.minds.active)} is thinking…</span>`;
   box.appendChild(th);scrollChat();
   try{
-    const msgs=[{role:'system',content:personaSystem(state.minds.profile)}].concat(state.minds.history.slice(-10));
+    const {auth}=resolveProvider(getSettings());
+    const msgs=[{role:'system',content:personaSystem(state.minds.profile)}].concat(toApiMessages(state.minds.history.slice(-10),auth));
     th.remove();const el=addMindMsg('ai','');const body=el.querySelector('.body');let acc='';
     await aiComplete(msgs,{stream:true,onToken:t=>{acc+=t;body.innerHTML=renderMarkdown(acc);scrollChat();}});
     if(!acc)body.innerHTML='(silence)';
@@ -1795,9 +1990,11 @@ function enterApp(u){
   state.user=u;state.mode=u.preferredMode||'logical';
   state.chat=[];state.activeConvId=null;
   state.minds={active:null,profile:null,history:[],convId:null};
+  state.chatPending=[];state.mindPending=[];
   showView('app');renderBalance();
   setChatMode(state.mode);
   chatMsgs.innerHTML='';
+  renderAttachStrip('chatAttachStrip',state.chatPending,removeChatAttachment);
   const nm=document.getElementById('sbHeadName'),un=document.getElementById('sbHeadUser');
   if(nm)nm.textContent=u.fullName||u.username;
   if(un)un.textContent='@'+u.username;
