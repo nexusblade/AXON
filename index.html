@@ -1039,7 +1039,7 @@ nav{display:flex;align-items:center;gap:20px;padding:14px 24px;z-index:20;
   <div class="panel glass" style="border-radius:0">
     <button class="icon-btn close" id="closeSettings">✕</button>
     <h3>Settings</h3>
-    <p class="hint">Pick a provider (or Auto to detect it from your key), then tweak the endpoint or model if you need to.</p>
+    <p class="hint">Pick a provider, or use Auto Detect and paste any API key — AXON will identify it and tell you plainly if it isn't a chat/text-generation key.</p>
     <div class="field"><label>Provider</label>
       <div class="preset-row" id="presets"></div></div>
     <div class="field"><label>Endpoint URL</label><input id="setEndpoint" placeholder="https://api.example.com/v1/chat/completions"></div>
@@ -1408,7 +1408,7 @@ function getSettings(){return LS.get(SET_KEY,{provider:'auto',endpoint:'',key:''
 
 // id, display name, default endpoint, default model, auth style, key-hint, prefixes used for Auto-detection
 const PRESETS=[
-  {id:'auto',       name:'Auto',       endpoint:'',                                                                   model:'',                          auth:'bearer', hint:'any provider key — AXON will guess',              prefixes:[]},
+  {id:'auto',       name:'Auto Detect', endpoint:'',                                                                 model:'',                          auth:'bearer', hint:'any API key — AXON will identify it',              prefixes:[]},
   {id:'openai',     name:'OpenAI',     endpoint:'https://api.openai.com/v1/chat/completions',                        model:'gpt-4o-mini',               auth:'bearer', hint:'sk-…',                                             prefixes:[]},
   {id:'gemini',     name:'Gemini',     endpoint:'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions', model:'gemini-2.5-flash',   auth:'bearer', hint:'AIzaSy…',                                          prefixes:['AIzaSy']},
   {id:'anthropic',  name:'Anthropic',  endpoint:'https://api.anthropic.com/v1/messages',                             model:'claude-sonnet-5',           auth:'anthropic', hint:'sk-ant-…',                                      prefixes:['sk-ant-']},
@@ -1425,18 +1425,88 @@ const PRESETS=[
   {id:'azure',      name:'Azure',      endpoint:'https://YOUR-RESOURCE.openai.azure.com/openai/deployments/YOUR-DEPLOYMENT/chat/completions?api-version=2024-08-01-preview', model:'', auth:'api-key', hint:'your Azure OpenAI key', prefixes:[]},
 ];
 function getPreset(id){return PRESETS.find(p=>p.id===id)||PRESETS[1];}
-function detectProviderFromKey(key){
-  key=(key||'').trim();
-  for(const p of PRESETS){ for(const pre of p.prefixes){ if(key.startsWith(pre)) return p.id; } }
-  return null; // ambiguous (many providers share generic "sk-" style keys) — caller decides fallback
+
+// Known APIs that are NOT chat/text-generation — Auto Detect recognizes these so it can
+// give an accurate, specific answer instead of quietly trying to feed them into a chat
+// endpoint. Most of these services don't ship a distinctive key prefix (many are just a
+// bare hex string), so an endpoint/domain match is far more reliable than the key alone —
+// that's why every entry carries `domains` and `prefixes` is often empty.
+const NON_CHAT_APIS=[
+  {id:'elevenlabs', name:'ElevenLabs',     category:'voice',   label:'Text-to-Speech API',
+   domains:['api.elevenlabs.io'], prefixes:['sk_'],
+   note:'It turns text into spoken audio (auth via an "xi-api-key" header, response is an audio file) — nothing like a chat reply.'},
+  {id:'mediastack', name:'MediaStack',     category:'news',    label:'News Data API',
+   domains:['api.mediastack.com'], prefixes:[],
+   note:'It returns live/historical news headlines as JSON from a GET request with an access_key parameter — there\u2019s no chat concept at all.'},
+  {id:'huggingface',name:'Hugging Face',   category:'ml',      label:'ML Model Hub / Inference API',
+   domains:['api-inference.huggingface.co','huggingface.co'], prefixes:['hf_'],
+   note:'It hosts thousands of different model types (text, image, audio\u2026) \u2014 what it does depends entirely on which model you call, not the key.'},
+  {id:'replicate',  name:'Replicate',      category:'ml',      label:'ML Model Hosting API',
+   domains:['api.replicate.com'], prefixes:['r8_'],
+   note:'It runs community ML models (mostly image/audio/video) through an async prediction API \u2014 a different shape than chat completions.'},
+  {id:'stability',  name:'Stability AI',   category:'image',   label:'Image Generation API',
+   domains:['api.stability.ai'], prefixes:[],
+   note:'It generates images from text prompts and returns image data, not text replies.'},
+  {id:'newsapi',    name:'NewsAPI.org',    category:'news',    label:'News Data API',
+   domains:['newsapi.org'], prefixes:[],
+   note:'Same category as MediaStack, different vendor \u2014 returns news articles as JSON.'},
+  {id:'openweather',name:'OpenWeatherMap', category:'weather', label:'Weather Data API',
+   domains:['api.openweathermap.org'], prefixes:[],
+   note:'It returns current/forecast weather data as JSON.'},
+];
+function hostnameOf(url){ try{ return new URL((url||'').trim()).hostname.replace(/^www\./,''); }catch(e){ return ''; } }
+
+// Identifies which known API a key/endpoint belongs to, and — just as importantly — what
+// KIND of API it is. An endpoint/domain match is treated as authoritative when the user
+// supplies one; key-prefix matching is the fallback and only covers providers whose keys
+// have a genuinely distinctive shape (a plain "sk-…" or 32-char-hex key is inherently
+// ambiguous and can't be told apart from a dozen other services by shape alone).
+function detectAPI(key,endpoint){
+  key=(key||'').trim(); const host=hostnameOf(endpoint);
+
+  if(host){
+    for(const p of PRESETS){ if(p.id!=='auto' && p.endpoint && hostnameOf(p.endpoint)===host) return {kind:'chat',id:p.id,name:p.name}; }
+    for(const a of NON_CHAT_APIS){ if(a.domains.some(d=>host===d||host.endsWith('.'+d))) return {kind:a.category,id:a.id,name:a.name,label:a.label,note:a.note}; }
+  }
+  if(key){
+    if(/^sk-ant-/.test(key)) return {kind:'chat',id:'anthropic',name:'Anthropic'};
+    if(/^sk-or-/.test(key))  return {kind:'chat',id:'openrouter',name:'OpenRouter'};
+    if(/^gsk_/.test(key))    return {kind:'chat',id:'groq',name:'Groq'};
+    if(/^AIzaSy/.test(key))  return {kind:'chat',id:'gemini',name:'Gemini'};
+    if(/^xai-/.test(key))    return {kind:'chat',id:'xai',name:'xAI'};
+    if(/^pplx-/.test(key))   return {kind:'chat',id:'perplexity',name:'Perplexity'};
+    if(/^fw[_-]/.test(key))  return {kind:'chat',id:'fireworks',name:'Fireworks'};
+    for(const a of NON_CHAT_APIS){ if(a.prefixes.some(pre=>key.startsWith(pre))) return {kind:a.category,id:a.id,name:a.name,label:a.label,note:a.note}; }
+    // Generic "sk-" (hyphen) is OpenAI's own shape, also reused by DeepSeek/Qwen — ambiguous
+    // among themselves but still unambiguously a chat-model key, so it's a safe fallback.
+    if(/^sk-/.test(key))     return {kind:'chat',id:'openai',name:'OpenAI-compatible',ambiguous:true};
+  }
+  return {kind:'unknown'};
 }
-// resolves what to actually send: explicit picks win, "auto" is detected fresh from the key every call
+
+// resolves what to actually send: explicit picks win; "auto" is detected fresh every call
 function resolveProvider(s){
   let id=s.provider||'openai';
-  if(id==='auto'){ id=detectProviderFromKey(s.key)||'openai'; }
+  if(id==='auto'){
+    const detected=detectAPI(s.key,s.endpoint);
+    if(detected.kind==='chat'){
+      const preset=getPreset(detected.id);
+      return {endpoint:s.endpoint||preset.endpoint, model:s.model||preset.model, auth:preset.auth, id:detected.id, detected};
+    }
+    if(detected.kind==='unknown'){
+      // no confident match: last resort is the documented OpenAI-compatible default,
+      // but if the user pasted their OWN endpoint, respect it instead of overriding
+      const preset=getPreset('openai');
+      return {endpoint:s.endpoint||preset.endpoint, model:s.model||preset.model, auth:preset.auth, id:'openai', detected};
+    }
+    // recognized but non-chat (voice / news / image / weather / ml) — deliberately left
+    // without a fetchable chat endpoint; aiComplete() stops with a clear error before
+    // ever trying to use it, instead of silently misrouting it to OpenAI.
+    return {endpoint:'', model:'', auth:'bearer', id:detected.id, detected};
+  }
   const preset=getPreset(id);
-  const endpoint=(s.provider!=='auto' && s.endpoint) ? s.endpoint : preset.endpoint;
-  const model=(s.provider!=='auto' && s.model) ? s.model : preset.model;
+  const endpoint=s.endpoint||preset.endpoint;
+  const model=s.model||preset.model;
   return {endpoint,model,auth:preset.auth,id};
 }
 let selectedProviderId='auto';
@@ -1448,6 +1518,32 @@ function initSettingsPanel(){
   setKey.value=s.key;
   renderPresets();
 }
+// Live readout for Auto Detect mode: reflects what the current key/endpoint actually
+// resolve to, right as the person types, instead of letting them find out via an error
+// after hitting Save and sending a message.
+function updateAutoDetectHint(){
+  if(selectedProviderId!=='auto') return;
+  const hintBox=document.getElementById('providerHint');
+  const key=setKey.value.trim(), endpoint=document.getElementById('setEndpoint').value.trim();
+  if(!key && !endpoint){
+    hintBox.style.color='var(--gray)';
+    hintBox.textContent='Paste any API key above — add its endpoint URL too, if you have one, for the most reliable match. AXON will identify what it is.';
+    return;
+  }
+  const d=detectAPI(key,endpoint);
+  if(d.kind==='chat'){
+    hintBox.style.color='var(--logic)';
+    hintBox.textContent='✓ Detected: '+d.name+(d.ambiguous?' (best guess — this key shape is shared by several providers; paste the endpoint URL above to confirm)':'')+'. This is a text-generation model and will power AXON’s replies.';
+  }else if(d.kind==='unknown'){
+    hintBox.style.color='var(--gray)';
+    hintBox.textContent = endpoint
+      ? 'Not on AXON’s known list, but it will be called as an OpenAI-compatible chat endpoint at the URL you gave — set the correct model name above.'
+      : 'Couldn’t identify this key from its prefix alone. If it’s OpenAI-compatible, AXON will default to the OpenAI endpoint — paste the provider’s endpoint URL above for a reliable match, or pick the provider manually from the list.';
+  }else{
+    hintBox.style.color='var(--dual)';
+    hintBox.textContent='⚠ Detected: '+d.name+' — '+(d.label||d.kind)+'. '+(d.note?d.note+' ':'')+'This can’t power AXON’s chat (it doesn’t generate text replies) — use a chat-model key instead (OpenAI, Anthropic, Gemini, Groq…).';
+  }
+}
 function renderPresets(){
   const pr=document.getElementById('presets'); pr.innerHTML='';
   const preset=getPreset(selectedProviderId);
@@ -1455,16 +1551,17 @@ function renderPresets(){
   const hintBox=document.getElementById('providerHint');
   setKey.placeholder='Paste your API key ('+preset.hint+')';
   if(selectedProviderId==='auto'){
-    epInput.disabled=true; modelInput.disabled=true;
-    epInput.value=''; epInput.placeholder='Auto-detected from your key';
-    modelInput.value=''; modelInput.placeholder='Auto-detected from your key';
-    hintBox.textContent='Auto reliably recognizes Anthropic, Gemini, Groq, OpenRouter, xAI, Perplexity and Fireworks keys by their prefix. Other keys (many look like generic "sk-…") fall back to OpenAI-compatible — pick the provider manually for those if it does not match.';
+    epInput.disabled=false; modelInput.disabled=false;
+    epInput.placeholder='Optional — paste the API’s endpoint/base URL to sharpen detection';
+    modelInput.placeholder='Optional — override the model name';
+    updateAutoDetectHint();
   }else{
     epInput.disabled=false; modelInput.disabled=false;
     epInput.placeholder='https://api.example.com/v1/chat/completions';
     modelInput.placeholder='model-name';
     if(!epInput.value || PRESETS.some(p=>p.endpoint && p.endpoint===epInput.value)) epInput.value=preset.endpoint;
     if(!modelInput.value || PRESETS.some(p=>p.model && p.model===modelInput.value)) modelInput.value=preset.model;
+    hintBox.style.color='var(--gray)';
     hintBox.textContent = preset.id==='azure'
       ? 'Replace YOUR-RESOURCE and YOUR-DEPLOYMENT in the endpoint above with your actual Azure resource and deployment names.'
       : (preset.id==='anthropic' ? 'Uses Anthropic’s native Messages API directly from your browser.' : '');
@@ -1474,16 +1571,18 @@ function renderPresets(){
     if(preset.id===selectedProviderId)b.classList.add('sel');
     b.onclick=()=>{
       selectedProviderId=preset.id;
-      if(preset.id!=='auto'){ epInput.value=preset.endpoint; modelInput.value=preset.model; }
+      epInput.value=preset.endpoint; modelInput.value=preset.model;
       renderPresets();
     };
     pr.appendChild(b);
   });
 }
+document.getElementById('setEndpoint').addEventListener('input',updateAutoDetectHint);
+document.getElementById('setKey').addEventListener('input',updateAutoDetectHint);
 document.getElementById('saveSettings').onclick=()=>{
   const endpoint=document.getElementById('setEndpoint').value.trim();
   const model=document.getElementById('setModel').value.trim();
-  LS.set(SET_KEY,{provider:selectedProviderId,endpoint:selectedProviderId==='auto'?'':endpoint,model:selectedProviderId==='auto'?'':model,key:setKey.value.trim()});
+  LS.set(SET_KEY,{provider:selectedProviderId,endpoint,model,key:setKey.value.trim()});
   const el=document.getElementById('setSaved');el.textContent='✓ Saved';
   setTimeout(()=>{document.getElementById('settingsOverlay').classList.remove('active');el.textContent='';},750);
 };
@@ -1498,7 +1597,10 @@ document.getElementById('settingsOverlay').onclick=e=>{if(e.target.id==='setting
 async function aiComplete(messages,{stream=false,onToken=null,temperature=0.85}={}){
   const s=getSettings();
   if(!s.key) throw new Error('NO_SETTINGS');
-  const {endpoint,model,auth}=resolveProvider(s);
+  const {endpoint,model,auth,detected}=resolveProvider(s);
+  if(detected && detected.kind!=='chat' && detected.kind!=='unknown'){
+    throw new Error('This looks like a '+detected.name+' key ('+(detected.label||detected.kind)+'), not a chat/text-generation key — AXON can\u2019t use it to generate replies. '+(detected.note?detected.note+' ':'')+'Open Settings ⚙ and add a chat-model key instead (OpenAI, Anthropic, Gemini, Groq, etc.).');
+  }
   if(!endpoint) throw new Error('NO_SETTINGS');
 
   if(auth==='anthropic') return anthropicComplete(endpoint,s.key,model,messages,{stream,onToken,temperature});
