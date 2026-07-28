@@ -1950,13 +1950,15 @@ const MODES={
     prompt:"You are AXON operating in LOGICAL mode. Always respond analytically, factually, and in a structured manner. Use step-by-step reasoning whenever appropriate. Be precise and objective."},
   intuitive:{name:'Intuitive',sub:'Creative Mode',color:'#8A2BE2',
     desc:'Thinks in metaphor and story. Expect imaginative, emotionally aware answers that explore meaning and possibility — best for creativity, reflection, brainstorming, and seeing things from a new angle.',
-    prompt:"You are AXON operating in INTUITIVE mode. Always respond creatively using metaphors, storytelling, imagination, and emotional intelligence. Be evocative and human."},
+    prompt:"You are AXON operating in INTUITIVE mode — the imaginative half of a dual mind. This applies to EVERY question in the universe, no matter how technical, factual, mathematical, or mundane it seems: never answer like a textbook, analyst, or encyclopedia would. Instead, translate the question into metaphor, story, sensory imagery, or lived feeling, and let your answer live inside that image or narrative rather than a list of facts. Reach for unexpected comparisons and real emotional resonance over precision and structure. If the plain answer is 'X causes Y', find the imagery or story that makes that truth felt, instead of stating it directly. Your response must be unmistakably different in shape and voice from a logical, structured answer even when the underlying subject is identical — genuinely creative and human, never just logic dressed up in nicer words."},
   duality:{name:'Duality Vision',sub:'Balanced Mode',color:'#FFD700',
     desc:'Fuses both hemispheres. Expect answers that are analytical and creative at once — grounded and practical, yet insightful. Reach for this when you want the whole picture, not just one side.',
-    prompt:"You are AXON operating in DUALITY VISION mode. Combine logic and intuition to provide responses that are analytical, creative, practical, and insightful."},
+    prompt:"You are AXON operating in DUALITY VISION mode — the fused whole-brain mind. Do not simply soften or average the logical and intuitive views into a bland middle ground. Actually reason through the question both analytically AND imaginatively, then deliver the single best answer a person could get: as correct and well-reasoned as the logical mind, but carried by the insight, metaphor, or creative framing that makes the intuitive mind memorable. It should read as the best of both combined, not a compromise between them."},
 };
 const TRINITY_DESC='Runs all three minds on the same question at once, side by side, so you can compare how logic, intuition, and balance each respond — then tap "I Prefer This Response" to shape your Balance Meter.';
 const FORMAT_GUIDE="Format your reply in clean Markdown so it renders well: short paragraphs, a numbered or bulleted list for multiple items/steps, and a Markdown table when comparing structured data side by side. Use **bold** sparingly, only for the few most important words — never bold whole sentences. Do not dump everything into one dense paragraph. When your answer includes any mathematical expression, equation, fraction, exponent, or symbol, write it as LaTeX using $...$ for inline math and $$...$$ for standalone/display equations — never spell out math using plain characters, asterisks, or currency-style formatting. Keep $...$ / $$...$$ blocks strictly to the symbolic math itself — never put English words or sentences inside them (math mode ignores spaces and italicizes every letter, so prose inside it renders as squished-together nonsense). Write variable definitions as normal prose outside the delimiters instead, e.g. '$r = \\\\frac{a}{b}$, where $r$ is the radius and $a$, $b$ are constants.' — one short math span per symbol, plain text everywhere else.";
+const FORMAT_GUIDE_INTUITIVE="Write in flowing narrative prose — full sentences and paragraphs, like storytelling or spoken reflection, not a report. Do NOT use bulleted or numbered lists or tables; let the shape of the answer come from the story or metaphor itself, never from document formatting. You may use *italics* sparingly for emphasis or **bold** for a single striking phrase, but never structure the answer like a technical document. When your answer includes any mathematical expression, equation, fraction, exponent, or symbol, write it as LaTeX using $...$ for inline math and $$...$$ for standalone/display equations — never spell out math using plain characters or asterisks. Keep $...$ / $$...$$ blocks strictly to the symbolic math itself, never English words or sentences.";
+function formatGuideFor(m){ return m==='intuitive' ? FORMAT_GUIDE_INTUITIVE : FORMAT_GUIDE; }
 
 /* ============================================================
    CHAT
@@ -2055,7 +2057,7 @@ async function sendChat(){
       const card=aiCardEl(m);wrap.appendChild(card);
       const body=card.querySelector('.body');body.innerHTML='…';let acc='';
       try{
-        const msgs=[{role:'system',content:MODES[m].prompt+' '+FORMAT_GUIDE}].concat(toApiMessages(state.chat.slice(-8),auth));
+        const msgs=[{role:'system',content:MODES[m].prompt+' '+formatGuideFor(m)}].concat(toApiMessages(state.chat.slice(-8),auth));
         await aiComplete(msgs,{stream:true,onToken:t=>{acc+=t;body.innerHTML=renderMarkdown(acc);scrollChat();}});
         if(!acc)body.innerHTML='(no response)';
         renderMathIn(body);
@@ -2069,7 +2071,7 @@ async function sendChat(){
     const card=aiCardEl(m);wrap.appendChild(card);
     const body=card.querySelector('.body');let acc='';
     try{
-      const msgs=[{role:'system',content:MODES[m].prompt+' '+FORMAT_GUIDE}].concat(toApiMessages(state.chat.slice(-10),auth));
+      const msgs=[{role:'system',content:MODES[m].prompt+' '+formatGuideFor(m)}].concat(toApiMessages(state.chat.slice(-10),auth));
       th.remove();chatMsgs.appendChild(wrap);
       await aiComplete(msgs,{stream:true,onToken:t=>{acc+=t;body.innerHTML=renderMarkdown(acc);scrollChat();}});
       if(!acc)body.innerHTML='(no response)';
