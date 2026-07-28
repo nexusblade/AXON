@@ -4626,6 +4626,7 @@ function openGameOverlay(key){
    point Know Your Mind at the new hub.
 ================================================================ */
 window.renderKnowIntro = renderKnowHub;
+window.renderCouncilSelect = renderCouncilSelect;
 window.navTo = function(name,mode){
   if(name==='chat') setChatMode(mode||state.mode||'logical');
   if(name==='know') renderKnowHub();
