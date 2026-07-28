@@ -2670,13 +2670,15 @@ const SCAN_BANK = {
 ],
 };
 
-function bankQuestions(n){
+function bankQuestions(n,opts){
+  opts=opts||{};
+  const mcqOnly = opts.mcqOnly!==false;
   const out=[];
   const cats=shuffle(CATS);
   let i=0;
   while(out.length<n){
     const c=cats[i%cats.length];
-    const pool=SCAN_BANK[c].filter(q=>!out.some(o=>o.question===q.q));
+    const pool=SCAN_BANK[c].filter(q=>(!mcqOnly||!q.open)&&!out.some(o=>o.question===q.q));
     if(pool.length){
       const q=pick(pool);
       out.push({question:q.q,category:c,options:q.o||null,open:!!q.open,placeholder:q.ph||''});
@@ -2687,27 +2689,38 @@ function bankQuestions(n){
   return out;
 }
 
-/* AI-generated scan (merged with the bank so every session differs) */
+/* AI-generated scan (merged with the bank so every session differs) — MCQ-only, 10 questions total */
 async function generateScan(){
-  const bank = bankQuestions(15);
-  const sys = "You are AXON's neural scan generator. Produce scenario-based questions that reveal HOW a person thinks. "
-    + "STRICT: never academic, never mathematics, never general knowledge, never memory or IQ items, never 'what is your favourite…'. "
-    + "Every item must be a vivid situation, a decision, a dilemma, or an invitation to invent. Categories to draw from: "
-    + CATS.join(', ') + ". Mix formats: some with 4 short options (1-5 words each), some fully open-ended. "
-    + "Questions must be under 24 words and contain exactly one idea. "
-    + "Respond with ONLY a JSON array, no prose, no fences. Each element: "
-    + '{"question":string,"category":string,"open":boolean,"options":[4 short strings]|null,"placeholder":string}. '
-    + "When open is true set options to null and give a short placeholder inviting a written answer.";
-  const got = await aiJSON(sys,'Generate 9 fresh scan items now. Variation seed: '+uid()+'. Vary categories and formats.',1.0);
-  if(!Array.isArray(got)) return bank;
-  const clean = got.filter(q=>q&&q.question&&(q.open||Array.isArray(q.options)))
-                   .map(q=>({question:String(q.question),category:CATS.includes(q.category)?q.category:pick(CATS),
-                             open:!!q.open, options:q.open?null:(q.options||[]).map(String).slice(0,4),
-                             placeholder:q.placeholder||'Answer in your own words…'}))
-                   .filter(q=>q.open||q.options.length>=2);
-  /* keep 15 total: AI items first, topped up from the bank, then shuffled */
-  const merged = clean.slice(0,9).concat(bank).slice(0,15);
-  return shuffle(merged);
+  const bank = bankQuestions(10,{mcqOnly:true});
+  const sys = "You are AXON's neural scan generator. Produce short, vivid CASE-BASED / SCENARIO multiple-choice questions that reveal HOW a person thinks. "
+    + "STRICT: never academic, never mathematics, never general knowledge, never memory or IQ items, never a plain preference question like 'what is your favourite…'. "
+    + "Every item must place the person INSIDE a concrete situation, decision, or dilemma, then ask what they would do. Categories to draw from: "
+    + CATS.join(', ') + ". "
+    + "MANDATORY: every question is multiple-choice ONLY — never open-ended, never free text. Each question must have between 4 and 5 short, clearly distinct options (1-6 words each) that cover meaningfully different responses, not near-duplicates. "
+    + "Each question must be under 28 words, describe exactly one clear scenario, and be immediately easy to understand — no vague, confusing, or ambiguous wording. "
+    + "Respond with ONLY a JSON array, no prose, no markdown fences. Each element: "
+    + '{"question":string,"category":string,"options":[4 to 5 short strings]}.';
+  const got = await aiJSON(sys,'Generate 6 fresh, high-quality case-based MCQ scan items now. Variation seed: '+uid()+'. Vary categories — every question must be a clear scenario with sensible, distinct options.',0.9);
+  let clean=[];
+  if(Array.isArray(got)){
+    clean = got.filter(q=>q&&q.question&&Array.isArray(q.options)&&q.options.length>=4&&q.options.length<=5)
+               .map(q=>({question:String(q.question),category:CATS.includes(q.category)?q.category:pick(CATS),
+                         open:false, options:q.options.map(String).slice(0,5), placeholder:''}));
+  }
+  /* exactly 10 total: AI items first (deduped), topped up from the MCQ-only bank, then shuffled */
+  const seen=new Set();
+  const merged=[];
+  clean.concat(bank).forEach(q=>{
+    if(merged.length>=10) return;
+    if(seen.has(q.question)) return;
+    seen.add(q.question); merged.push(q);
+  });
+  while(merged.length<10 && bank.length){
+    const extra=bankQuestions(10,{mcqOnly:true}).find(q=>!seen.has(q.question));
+    if(!extra) break;
+    seen.add(extra.question); merged.push(extra);
+  }
+  return shuffle(merged).slice(0,10);
 }
 
 /* ================================================================
@@ -3544,7 +3557,7 @@ function renderKnowHub(){
       <h2 class="logo-word">Know Your Mind</h2>
       <div class="tagline">A study of how you think</div>
       <p class="desc">AXON runs a neural scan, then a set of cognitive trials you choose yourself. What it produces is not a score of what you know — it is a map of how you decide, invent, and reason. Five to seven minutes.</p>
-      <button class="btn primary" id="kymStart">START</button>
+      <button class="btn primary" id="kymStart">Start</button>
     </div>
 
     ${last?`<div class="glass" style="max-width:760px;margin:34px auto 0;padding:22px 26px">
@@ -3983,7 +3996,7 @@ function renderNeuralHistory(){
       <div class="eyebrow">Neural History</div>
       <h2 class="logo-word" style="font-size:30px;margin:12px 0 10px">No sessions stored yet</h2>
       <p class="desc">Run a full cognitive analysis and AXON will begin tracking how your mind changes over time.</p>
-      <button class="btn primary" id="nhStart">Initialize Neural Link</button>
+      <button class="btn primary" id="nhStart">Start</button>
       <div style="margin-top:14px"><button class="btn" id="nhBack">Back</button></div>
     </div>`;
     $('nhStart').onclick=kymInit; $('nhBack').onclick=renderKnowHub; return;
