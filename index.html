@@ -2692,15 +2692,16 @@ function bankQuestions(n,opts){
 /* AI-generated scan (merged with the bank so every session differs) — MCQ-only, 10 questions total */
 async function generateScan(){
   const bank = bankQuestions(10,{mcqOnly:true});
-  const sys = "You are AXON's neural scan generator. Produce short, vivid CASE-BASED / SCENARIO multiple-choice questions that reveal HOW a person thinks. "
+  const sys = "You are AXON's neural scan generator. Produce vivid CASE-BASED / SCENARIO multiple-choice questions that reveal HOW a person thinks. "
     + "STRICT: never academic, never mathematics, never general knowledge, never memory or IQ items, never a plain preference question like 'what is your favourite…'. "
     + "Every item must place the person INSIDE a concrete situation, decision, or dilemma, then ask what they would do. Categories to draw from: "
     + CATS.join(', ') + ". "
     + "MANDATORY: every question is multiple-choice ONLY — never open-ended, never free text. Each question must have between 4 and 5 short, clearly distinct options (1-6 words each) that cover meaningfully different responses, not near-duplicates. "
-    + "Each question must be under 28 words, describe exactly one clear scenario, and be immediately easy to understand — no vague, confusing, or ambiguous wording. "
+    + "Write each question as 2-3 short sentences (roughly 30-55 words total): first set up the situation with a bit of real, concrete detail so it feels grounded and specific (who, what, the stakes), then ask the actual question clearly in the final sentence. "
+    + "The scenario must always make logical sense — realistic cause and effect, no contradictions, nothing confusing or nonsensical — and stay easy to follow despite the extra detail. "
     + "Respond with ONLY a JSON array, no prose, no markdown fences. Each element: "
     + '{"question":string,"category":string,"options":[4 to 5 short strings]}.';
-  const got = await aiJSON(sys,'Generate 6 fresh, high-quality case-based MCQ scan items now. Variation seed: '+uid()+'. Vary categories — every question must be a clear scenario with sensible, distinct options.',0.9);
+  const got = await aiJSON(sys,'Generate 6 fresh, high-quality case-based MCQ scan items now. Variation seed: '+uid()+'. Vary categories — every question must be a well-formed 2-3 sentence scenario that makes complete sense, with sensible, distinct options.',0.9);
   let clean=[];
   if(Array.isArray(got)){
     clean = got.filter(q=>q&&q.question&&Array.isArray(q.options)&&q.options.length>=4&&q.options.length<=5)
