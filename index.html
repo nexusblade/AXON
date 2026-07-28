@@ -53,9 +53,22 @@ input{width:100%;font-family:var(--sans);font-size:15px;color:var(--white);
   padding:14px 16px;transition:.2s}
 input::placeholder{color:#5a616e}
 input:focus{outline:none;border-color:var(--logic);background:rgba(0,191,255,.06)}
+select{width:100%;font-family:var(--sans);font-size:14px;color:var(--white);
+  background:rgba(255,255,255,.04);border:1px solid var(--glass-brd);border-radius:12px;
+  padding:14px 16px;transition:.2s;cursor:pointer;appearance:none;-webkit-appearance:none;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none' stroke='%238b93a1' stroke-width='2'%3E%3Cpath d='M5 8l5 5 5-5'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:right 14px center;background-size:16px}
+select:focus{outline:none;border-color:var(--logic);background-color:rgba(0,191,255,.06)}
+select option{background:#151515;color:var(--white)}
 label{display:block;font-family:var(--mono);font-size:10px;letter-spacing:.2em;
   text-transform:uppercase;color:var(--gray);margin:0 0 7px 3px}
 .field{margin-bottom:16px}
+.saved-api-row{display:flex;gap:8px}
+.saved-api-row select{flex:1}
+.saved-api-row .btn{padding:0 16px;flex-shrink:0}
+.saved-api-save-row{display:flex;gap:8px;margin-top:10px}
+.saved-api-save-row input{flex:1}
+.saved-api-save-row .btn{white-space:nowrap;flex-shrink:0}
 .logo-word{font-weight:900;letter-spacing:.24em;
   background:linear-gradient(110deg,var(--logic),var(--dual) 50%,var(--intu));
   -webkit-background-clip:text;background-clip:text;color:transparent}
@@ -1040,6 +1053,17 @@ nav{display:flex;align-items:center;gap:20px;padding:14px 24px;z-index:20;
     <button class="icon-btn close" id="closeSettings">✕</button>
     <h3>Settings</h3>
     <p class="hint">Pick a provider, or use Auto Detect and paste any API key — AXON will identify it and tell you plainly if it isn't a chat/text-generation key.</p>
+    <div class="field"><label>Saved APIs</label>
+      <div class="saved-api-row">
+        <select id="savedApiSelect"><option value="">— Select a saved API —</option></select>
+        <button class="btn" id="deleteSavedApi" type="button" title="Delete selected saved API">🗑</button>
+      </div>
+      <div class="saved-api-save-row">
+        <input id="saveApiName" placeholder="Name this API (e.g. Groq — Llama 3.3)">
+        <button class="btn" id="saveApiBtn" type="button">+ Save Current</button>
+      </div>
+      <div class="hint" id="savedApiHint" style="margin-top:8px"></div>
+    </div>
     <div class="field"><label>Provider</label>
       <div class="preset-row" id="presets"></div></div>
     <div class="field"><label>Endpoint URL</label><input id="setEndpoint" placeholder="https://api.example.com/v1/chat/completions"></div>
@@ -1510,6 +1534,77 @@ function resolveProvider(s){
   return {endpoint,model,auth:preset.auth,id};
 }
 let selectedProviderId='auto';
+
+/* ------------------------------------------------------------
+   SAVED API PROFILES — lets the person keep several full configs
+   (e.g. a Groq key and a Gemini key) side by side, and switch
+   between them instantly from a dropdown, without re-typing
+   anything or losing the others.
+------------------------------------------------------------ */
+const SAVED_APIS_KEY='axon_saved_apis';
+function getSavedApis(){return LS.get(SAVED_APIS_KEY,[]);}
+function setSavedApis(arr){LS.set(SAVED_APIS_KEY,arr);}
+function savedApiUid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,7);}
+function renderSavedApiSelect(selectId){
+  const sel=document.getElementById('savedApiSelect');
+  const saved=getSavedApis();
+  sel.innerHTML='<option value="">— Select a saved API —</option>'+
+    saved.map(a=>`<option value="${a.id}">${escapeHtml(a.label)}</option>`).join('');
+  if(selectId)sel.value=selectId;
+}
+function clearSavedApiSelection(){
+  const sel=document.getElementById('savedApiSelect');
+  if(sel)sel.value='';
+}
+document.getElementById('savedApiSelect').addEventListener('change',e=>{
+  const id=e.target.value;
+  const hint=document.getElementById('savedApiHint');
+  if(!id){hint.textContent='';return;}
+  const a=getSavedApis().find(x=>x.id===id);
+  if(!a)return;
+  selectedProviderId=a.provider||'auto';
+  document.getElementById('setEndpoint').value=a.endpoint||'';
+  document.getElementById('setModel').value=a.model||'';
+  setKey.value=a.key||'';
+  renderPresets();
+  // apply immediately — no need to also hit "Save Settings" to switch over
+  LS.set(SET_KEY,{provider:a.provider||'auto',endpoint:a.endpoint||'',model:a.model||'',key:a.key||''});
+  hint.style.color='var(--logic)';
+  hint.textContent='✓ Switched to “'+a.label+'” — now active.';
+});
+document.getElementById('deleteSavedApi').onclick=()=>{
+  const sel=document.getElementById('savedApiSelect');
+  const id=sel.value;
+  const hint=document.getElementById('savedApiHint');
+  if(!id){hint.style.color='var(--gray)';hint.textContent='Select a saved API from the dropdown first, then delete it.';return;}
+  const saved=getSavedApis();
+  const a=saved.find(x=>x.id===id);
+  setSavedApis(saved.filter(x=>x.id!==id));
+  renderSavedApiSelect();
+  hint.style.color='var(--gray)';
+  hint.textContent=a?'Deleted “'+a.label+'”.':'';
+};
+document.getElementById('saveApiBtn').onclick=()=>{
+  const nameInput=document.getElementById('saveApiName');
+  const hint=document.getElementById('savedApiHint');
+  const key=setKey.value.trim();
+  if(!key){hint.style.color='var(--dual)';hint.textContent='Paste an API key above before saving it.';return;}
+  const provider=selectedProviderId;
+  const endpoint=document.getElementById('setEndpoint').value.trim();
+  const model=document.getElementById('setModel').value.trim();
+  let label=nameInput.value.trim();
+  if(!label)label=getPreset(provider).name+(model?' — '+model:'');
+  const saved=getSavedApis();
+  const entry={id:savedApiUid(),label,provider,endpoint,model,key};
+  saved.push(entry);
+  setSavedApis(saved);
+  nameInput.value='';
+  renderSavedApiSelect(entry.id);
+  hint.style.color='var(--logic)';
+  hint.textContent='✓ Saved “'+label+'” — pick it anytime from the dropdown above.';
+};
+document.getElementById('saveApiName').addEventListener('keydown',e=>{if(e.key==='Enter')document.getElementById('saveApiBtn').click();});
+
 function initSettingsPanel(){
   const s=getSettings();
   selectedProviderId = s.provider || 'auto';
@@ -1517,6 +1612,9 @@ function initSettingsPanel(){
   document.getElementById('setModel').value = s.model||'';
   setKey.value=s.key;
   renderPresets();
+  renderSavedApiSelect();
+  document.getElementById('savedApiHint').textContent='';
+  document.getElementById('saveApiName').value='';
 }
 // Live readout for Auto Detect mode: reflects what the current key/endpoint actually
 // resolve to, right as the person types, instead of letting them find out via an error
@@ -1572,13 +1670,15 @@ function renderPresets(){
     b.onclick=()=>{
       selectedProviderId=preset.id;
       epInput.value=preset.endpoint; modelInput.value=preset.model;
+      clearSavedApiSelection();
       renderPresets();
     };
     pr.appendChild(b);
   });
 }
-document.getElementById('setEndpoint').addEventListener('input',updateAutoDetectHint);
-document.getElementById('setKey').addEventListener('input',updateAutoDetectHint);
+document.getElementById('setEndpoint').addEventListener('input',()=>{clearSavedApiSelection();updateAutoDetectHint();});
+document.getElementById('setKey').addEventListener('input',()=>{clearSavedApiSelection();updateAutoDetectHint();});
+document.getElementById('setModel').addEventListener('input',clearSavedApiSelection);
 document.getElementById('saveSettings').onclick=()=>{
   const endpoint=document.getElementById('setEndpoint').value.trim();
   const model=document.getElementById('setModel').value.trim();
