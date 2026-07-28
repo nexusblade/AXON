@@ -971,12 +971,12 @@ nav{display:flex;align-items:center;gap:20px;padding:14px 24px;z-index:20;
           <div class="mode-card glass c-know" data-nav="know">
             <div class="glowline"></div><div class="ico">◑</div>
             <h3>Know Your Mind</h3><p class="tag">Cognitive Analysis</p>
-            <p>A neural scan, trials you choose yourself, and a full profile of how you think. Includes the Council of Minds.</p>
+            <p>A neural scan, trials you choose yourself, and a full profile of how you think.</p>
           </div>
           <div class="mode-card glass c-mind" data-nav="minds">
             <div class="glowline"></div><div class="ico">✦</div>
             <h3>Explore Great Minds</h3><p class="tag">Historical Intelligence</p>
-            <p>Step into the reasoning of any thinker in history and speak with them directly.</p>
+            <p>Step into the reasoning of any thinker in history, speak with them directly, or convene a Council of Minds.</p>
           </div>
           <div class="mode-card glass c-train" data-nav="train">
             <div class="glowline"></div><div class="ico">◈</div>
@@ -2158,7 +2158,16 @@ function renderMindsIntro(){
         <button class="btn primary" id="mindGo">Enter</button>
       </div>
       <div class="suggest">${MIND_SUGGEST.map(n=>`<button data-n="${n}">${n}</button>`).join('')}</div>
+    </div>
+
+    <div class="glass council-hub" id="councilHub">
+      <div class="ch-glow"></div>
+      <div class="eyebrow" style="margin-bottom:10px">Collective Wisdom</div>
+      <h3 class="logo-word">Council of Minds</h3>
+      <p class="ch-sub">Gather history's greatest thinkers around a single question. Four minds answer in turn, then AXON synthesises what they collectively arrive at.</p>
+      <button class="btn primary" id="openCouncil">+ Create Council</button>
     </div>`;
+  $('openCouncil').onclick=renderCouncilSelect;
   mindsWrap.querySelectorAll('.suggest button').forEach(b=>b.onclick=()=>{document.getElementById('mindName').value=b.dataset.n;summonMind(b.dataset.n);});
   document.getElementById('mindGo').onclick=()=>summonMind(document.getElementById('mindName').value.trim());
   document.getElementById('mindName').addEventListener('keydown',e=>{if(e.key==='Enter')summonMind(e.target.value.trim());});
@@ -3572,17 +3581,8 @@ function renderKnowHub(){
           <button class="btn" id="kymViewLast" style="padding:9px 16px">View Report</button>
           <button class="btn" id="kymHistory" style="padding:9px 16px">Neural History</button>
         </div>
-      </div></div>`:''}
-
-    <div class="glass council-hub" id="councilHub">
-      <div class="ch-glow"></div>
-      <div class="eyebrow" style="margin-bottom:10px">Collective Wisdom</div>
-      <h3 class="logo-word">Council of Minds</h3>
-      <p class="ch-sub">Gather history's greatest thinkers around a single question. Four minds answer in turn, then AXON synthesises what they collectively arrive at.</p>
-      <button class="btn primary" id="openCouncil">+ Create Council</button>
-    </div>`;
+      </div></div>`:''}`;
   $('kymStart').onclick=kymInit;
-  $('openCouncil').onclick=renderCouncilSelect;
   if(last){
     $('kymViewLast').onclick=()=>renderFinalReport(last,true);
     $('kymHistory').onclick=renderNeuralHistory;
@@ -4089,10 +4089,10 @@ function councilStep(){
   const step=council.picked.length;
   if(step===4){ renderCouncilDash(); return; }
   const opts=councilOptions(council.picked);
-  knowWrap.innerHTML=`
+  mindsWrap.innerHTML=`
     <div class="council-select fade-up">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;gap:12px;flex-wrap:wrap">
-        <button class="btn kym-back" id="cbBack">← ${step===0?'Know Your Mind':'Back'}</button>
+        <button class="btn kym-back" id="cbBack">← ${step===0?'Explore Great Minds':'Back'}</button>
         <span class="hi-d">${step+1} / 4</span>
       </div>
       <div style="text-align:center;margin-bottom:6px">
@@ -4122,19 +4122,19 @@ function councilStep(){
     }
     council.picked.push(name); councilStep();
   };
-  knowWrap.querySelectorAll('.persona-pick').forEach(el=>{
+  mindsWrap.querySelectorAll('.persona-pick').forEach(el=>{
     if(council.picked.includes(el.dataset.n))el.classList.add('used');
     el.onclick=()=>take(el.dataset.n);
   });
   $('cCustomGo').onclick=()=>take($('cCustom').value);
   $('cCustom').addEventListener('keydown',e=>{if(e.key==='Enter')take(e.target.value);});
   $('cShuffle').onclick=councilStep;
-  $('cbBack').onclick=()=>{ if(step===0)renderKnowHub(); else {council.picked.pop();councilStep();} };
+  $('cbBack').onclick=()=>{ if(step===0)renderMindsIntro(); else {council.picked.pop();councilStep();} };
 }
 
 function renderCouncilDash(){
   markSeen(council.picked);
-  knowWrap.innerHTML=`
+  mindsWrap.innerHTML=`
     <div class="council-dash fade-up">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;gap:12px;flex-wrap:wrap">
         <button class="btn kym-back" id="cdBack">← Reassemble Council</button>
@@ -4307,14 +4307,14 @@ async function beginCouncil(){
   again.className='game-cta'; again.style.marginTop='22px';
   again.innerHTML=`<button class="btn" id="cNewQ">Ask Another Question</button>
     <button class="btn" id="cNewCouncil">Assemble New Council</button>
-    <button class="btn primary" id="cDone">Return to Know Your Mind</button>`;
+    <button class="btn primary" id="cDone">Return to Explore Great Minds</button>`;
   script.appendChild(again);
   $('cNewQ').onclick=()=>{
     $('cQ').disabled=false; $('cQ').value=''; $('cBegin').disabled=false; $('cBegin').style.opacity='1';
     $('cScript').innerHTML=''; $('cQ').focus();
   };
   $('cNewCouncil').onclick=renderCouncilSelect;
-  $('cDone').onclick=renderKnowHub;
+  $('cDone').onclick=renderMindsIntro;
 }
 
 /* ================================================================
