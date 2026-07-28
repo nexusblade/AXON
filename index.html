@@ -2790,7 +2790,7 @@ function gameMemory(host,done){
     await sleep(500);
     if(!alive())return;
     target.forEach(i=>{const c=cells()[i]; if(c)c.classList.add('lit');});
-    await sleep(2200+n*140);
+    await sleep(1000+n*110);
     if(!alive())return;
     target.forEach(i=>{const c=cells()[i]; if(c)c.classList.remove('lit');});
     cells().forEach(c=>c.classList.remove('disabled'));
