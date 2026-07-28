@@ -1956,7 +1956,7 @@ const MODES={
     prompt:"You are AXON operating in DUALITY VISION mode. Combine logic and intuition to provide responses that are analytical, creative, practical, and insightful."},
 };
 const TRINITY_DESC='Runs all three minds on the same question at once, side by side, so you can compare how logic, intuition, and balance each respond — then tap "I Prefer This Response" to shape your Balance Meter.';
-const FORMAT_GUIDE="Format your reply in clean Markdown so it renders well: short paragraphs, a numbered or bulleted list for multiple items/steps, and a Markdown table when comparing structured data side by side. Use **bold** sparingly, only for the few most important words — never bold whole sentences. Do not dump everything into one dense paragraph. When your answer includes any mathematical expression, equation, fraction, exponent, or symbol, write it as LaTeX using $...$ for inline math and $$...$$ for standalone/display equations — never spell out math using plain characters, asterisks, or currency-style formatting.";
+const FORMAT_GUIDE="Format your reply in clean Markdown so it renders well: short paragraphs, a numbered or bulleted list for multiple items/steps, and a Markdown table when comparing structured data side by side. Use **bold** sparingly, only for the few most important words — never bold whole sentences. Do not dump everything into one dense paragraph. When your answer includes any mathematical expression, equation, fraction, exponent, or symbol, write it as LaTeX using $...$ for inline math and $$...$$ for standalone/display equations — never spell out math using plain characters, asterisks, or currency-style formatting. Keep $...$ / $$...$$ blocks strictly to the symbolic math itself — never put English words or sentences inside them (math mode ignores spaces and italicizes every letter, so prose inside it renders as squished-together nonsense). Write variable definitions as normal prose outside the delimiters instead, e.g. '$r = \\\\frac{a}{b}$, where $r$ is the radius and $a$, $b$ are constants.' — one short math span per symbol, plain text everywhere else.";
 
 /* ============================================================
    CHAT
@@ -2659,9 +2659,23 @@ function mdInline(s){
   s=s.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g,'<a href="$2" target="_blank" rel="noopener">$1</a>');
   return s;
 }
+// Safety net for when a model still mixes explanatory prose into a math span despite
+// FORMAT_GUIDE's instructions not to. Math mode ignores spaces and italicizes every letter
+// as its own variable, so "$...,\ where r is the radius$" renders as squished-together
+// nonsense like "wherer istheradius". The reliable tell is a ", where" clause appended after
+// the real equation — close the math right there so the definitions render as normal,
+// correctly-spaced prose instead. LaTeX symbol commands inside that trailing prose (e.g.
+// \theta, \mu) are unwrapped to their plain word so no stray backslash shows either.
+function sanitizeMathProse(text){
+  return text.replace(/(\${1,2})([^$]*?),\s*where\s+([^$]*?)\1/gi,(m,delim,mathPart,prose)=>{
+    const plainProse=prose.replace(/\\([a-zA-Z]+)/g,'$1');
+    return delim+mathPart.trim()+delim+', where '+plainProse.trim();
+  });
+}
 function renderMarkdown(raw){
   if(raw==null||raw==='') return '';
   let src=String(raw).replace(/\r\n/g,'\n');
+  src=sanitizeMathProse(src);
 
   // protect fenced code blocks & inline code so their content is never treated as markdown
   const blocks=[];
