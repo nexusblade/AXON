@@ -2269,7 +2269,7 @@ function renderMindsIntro(){
       <p class="ch-sub">Gather history's greatest thinkers around a single question. Four minds answer in turn, then AXON synthesises what they collectively arrive at.</p>
       <button class="btn primary" id="openCouncil">+ Create Council</button>
     </div>`;
-  $('openCouncil').onclick=renderCouncilSelect;
+  document.getElementById('openCouncil').onclick=renderCouncilSelect;
   mindsWrap.querySelectorAll('.suggest button').forEach(b=>b.onclick=()=>{document.getElementById('mindName').value=b.dataset.n;summonMind(b.dataset.n);});
   document.getElementById('mindGo').onclick=()=>summonMind(document.getElementById('mindName').value.trim());
   document.getElementById('mindName').addEventListener('keydown',e=>{if(e.key==='Enter')summonMind(e.target.value.trim());});
