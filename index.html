@@ -17,6 +17,7 @@
 }
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{height:100%}
+button{font-family:inherit;color:inherit;background:none;border:none}
 body{
   font-family:var(--sans); background:var(--bg); color:var(--white);
   overflow:hidden; -webkit-font-smoothing:antialiased;
@@ -595,9 +596,10 @@ nav{display:flex;align-items:center;gap:20px;padding:14px 24px;z-index:20;
 /* Council Debate */
 .cd-scenario{font-size:18px;line-height:1.6;margin:6px 0 20px;font-weight:600}
 .cd-choices{display:flex;flex-direction:column;gap:10px;margin-bottom:18px}
-.cd-choice{text-align:left;padding:15px 18px;border-radius:13px;border:1px solid var(--glass-brd);background:rgba(255,255,255,.04);cursor:pointer;transition:.2s}
-.cd-choice:hover{border-color:var(--dual);transform:translateX(4px)}
-.cd-choice.sel{border-color:var(--dual);background:var(--dual-dim)}
+.cd-choice{text-align:left;padding:15px 18px;border-radius:13px;border:1px solid var(--glass-brd);background:rgba(255,255,255,.04);
+  color:var(--white);font-family:var(--sans);font-size:15px;line-height:1.4;cursor:pointer;transition:.2s}
+.cd-choice:hover{border-color:var(--dual);background:rgba(255,255,255,.08);transform:translateX(4px)}
+.cd-choice.sel{border-color:var(--dual);background:var(--dual-dim);color:var(--white)}
 
 /* ---------- Mind Forge · profile · duality · comparison · report ---------- */
 .forge-anim{text-align:center;padding:40px 0}
